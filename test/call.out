@@ -1,0 +1,11 @@
+call_empty_test:
+call_int_test:
+2
+call_arr_test:
+4
+5
+6
+4
+5
+6
+call_return_nothing:

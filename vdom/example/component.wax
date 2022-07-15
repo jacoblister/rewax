@@ -1,0 +1,63 @@
+(@include "../vdom.wax")
+(@include "../component/list.wax")
+
+(struct example
+	(let active int)
+	(let pos_x int)
+	(let pos_y int)
+)
+
+(let example_data (struct example) (alloc (struct example)))
+
+(func example_render (param example (struct example)) (result (struct vdom.element))
+	(let items (arr str) (alloc (arr str) "red" "green" "blue"))
+	(let svg (struct vdom.element) (svg version "1.1" xmlns "http://www.w3.org/2000/svg" width 640 height 480
+		(defs
+			(style type "text/css" text "text{user-select:none;}")
+			(style type "text/css" text "text::selection {background:none;}")
+		)
+	))
+	(let g (struct vdom.element) (g transform "translate(0.5 0.5)"))
+	(insert (get svg child) (# (get svg child)) g)
+	(let rect (struct vdom.element) (rect id "main" x 0 y 0 width 800 height 600 stroke "none" fill "white"
+		mousedown
+		(func (param event (struct vdom.event))
+			(set example active 0)
+			(call vdom.update)
+		)
+		contextmenu
+		(func (param event (struct vdom.event))
+			(set example active 1)
+			(set example pos_x (get event client_x))
+			(set example pos_y (get event client_y))
+			(call vdom.update)
+		)
+	))
+	(insert (get g child) (# (get g child)) rect)
+
+	(if (= (get example active) 1) (then
+		(insert (get g child) (# (get g child))
+			(call vdom.list_render (get example pos_x) (get example pos_y) items
+				(func (param value str)
+					(print value)
+					(set example active 0)
+					(call vdom.update)
+				)
+			)
+		)
+	))
+
+	(return svg)
+)
+
+(func render (result (struct vdom.element))
+	(return (call example_render example_data))
+)
+
+(func main (result int)
+	(call vdom.dom_init)
+	(set vdom.dom_render_func render)
+	(call vdom.dom_run)
+
+	(return 0)
+)

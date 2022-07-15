@@ -1,0 +1,7 @@
+(let vdom.dom_render_func (func (result (struct vdom.element))))
+
+(@include "element.wax")
+(@include "dom_xml.wax")
+(@include "diff.wax")
+(@include "dom_webview.wax")
+(@include "dom_js.wax")

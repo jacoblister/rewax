@@ -1,0 +1,5 @@
+{
+    "build": { "dockerfile": "Dockerfile" },
+    "forwardPorts": [8080],
+    "extensions": ["wax.wax4vscode"]
+}

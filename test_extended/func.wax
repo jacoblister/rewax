@@ -1,0 +1,69 @@
+(struct func_struct
+	(let fn (func (param x int)))
+	(let fn_array (arr (func (param x int))))
+	(let fn_map (map str (func (param x int))))
+)
+
+(func funcA (param x int)
+	(print "callA")
+	(print x)
+)
+
+(func funcB (param x int)
+	(print "callB")
+	(print x)
+)
+
+(func callFunc (param fn (func (param x int)))
+	(call fn 88)
+)
+
+(func func_var_call_test
+	(print "func_var_call_test:")
+	(let fn (func (param x int)) funcA)
+	(call fn 123)
+	(set fn funcB)
+	(call fn 123)
+)
+
+(func func_lambda_test
+	(print "func_lambda_test:")
+	(let y int 22)
+	(let fn (func (param x int))
+		(func (param x int) (print x) (print y))
+	)
+	(call fn 555)
+)
+
+(func func_to_func_test
+	(print "func_to_func_test:")
+	(let fn (func (param x int)) funcA)
+	(call callFunc fn)
+)
+
+(func func_struct_test
+	(print "func_struct_test:")
+	(let s (struct func_struct) (alloc (struct func_struct)))
+	(set s fn_array (alloc (arr (func (param x int)))))
+	(set s fn_map (alloc (map str (func (param x int)))))
+
+	(set s fn funcA)
+	(let fn (func (param x int)) (get s fn))
+	(call fn 321)
+
+	(insert (get s fn_array) 0 funcA)
+	(set fn (get s fn_array 0))
+	(call fn 888)
+
+	(set (get s fn_map) "fn" funcA)
+	(set fn (get s fn_map "fn"))
+	(call fn 999)
+)
+
+(func main (result int)
+	(call func_var_call_test)
+	(call func_lambda_test)
+	(call func_to_func_test)
+	(call func_struct_test)
+	(return 0)
+)

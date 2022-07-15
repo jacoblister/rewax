@@ -1,0 +1,16 @@
+(@define MODULE_VALIDATION "Validation")
+
+(func validate (param node (struct node))
+	(if (= (get node type) @NODE_EXPR) (then
+		(if (= (get node value) "let") (then
+    		(if (|| (< (# (get node child)) 2) (> (# (get node child)) 3)) (then
+                (call compile_error @MODULE_VALIDATION node "'let' requires 2 or 3 args")
+            ))
+        ))
+    ))
+
+    (for i 0 (< i (# (get node child))) 1 (do
+		(let child str (call node_to_str 0 (get node child i)))
+		(call validate (get node child i))
+	))
+)

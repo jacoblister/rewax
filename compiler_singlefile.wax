@@ -1,0 +1,238 @@
+; manually substitute these include files for single file target with examples 
+(@include "token.wax")
+(@include "node.wax")
+(@include "target_js.wax")
+
+(func prog_helloworld (result str)
+	(let lines (arr str) (alloc (arr str)
+		"(func main (result int)"
+		"  (print \"Hello World!\")"
+		"  (return 0)"
+		")"
+	))
+
+	(let prog str (alloc str ""))
+	(for i 0 (< i (# lines)) 1 (do
+		(<< prog (get lines i))
+	))
+
+	(return prog)
+)
+
+(func prog_fib (result str)
+	(let lines (arr str) (alloc (arr str)
+		";; Simple recursive function to compute\n"
+		";; Fibonacci numbers\n"
+		"(func fib (param i int) (result int)"
+		"	(if (<= i 1) (then\n"
+		"		(return i)"
+		"	))"
+		"	(return (+\n"
+		"		(call fib (- i 1))\n"
+		"		(call fib (- i 2))\n"
+		"	))\n"
+		")"
+		"\n"
+		"(func main (result int)\n"
+		"	(let x int (call fib 9))\n"
+		"	(print x)\n"
+		"	(return 0)\n"
+		")\n"
+	))
+
+	(let prog str (alloc str ""))
+	(for i 0 (< i (# lines)) 1 (do
+		(<< prog (get lines i))
+	))
+
+	(return prog)
+)
+
+(func prog_nqueens (result str)
+	(let lines (arr str) (alloc (arr str)
+		"(@define N 8 )(func attackable (param B (vec @N int ))(param y int )(result int )(let x int (get B y )\n"
+		")(for i 1 (<= i y )1 (do (let t int (get B (- y i )))(if (|| (= t x )(= t (- x i ))(= t (+ x i )))(then\n"
+		"(return 1 )))))(return 0 ))(func putboard (param B (vec @N int ))(param s int )(local o str (alloc str\n"
+		"\"N=\" ))(<< o (cast @N str ))(<< o \" solution #\" )(<< o (cast s str ))(<< o \"\\n\" )(for y 0 (< y\n"
+		"@N )1 (do (for x 0 (< x @N )1 (do (<< o (? (= (get B y )x )\"|Q\" \"|_\" ))))(<< o \"|\\n\" )))(print\n"
+		"o ))(func solve (local B (vec @N int )(alloc (vec @N int )))(let s int 0 )(let y int 0 )(set B 0 -1 )\n"
+		"(while (>= y 0 )(do (set B y (+ (get B y )1 ))(while (&& (< (get B y )@N )(call attackable B y ))(do (\n"
+		"set B y (+ (get B y )1 ))))(if (< (get B y )@N )(then (if (< y (- @N 1 ))(then (set y (+ y 1 ))(set B\n"
+		"y -1 ))(else (set s (+ s 1 ))(call putboard B s ))))(else (set y (- y 1 )))))))(func main (result int\n"
+		")(call solve )(return 0 ))\n"
+	))
+
+	(let prog str (alloc str ""))
+	(for i 0 (< i (# lines)) 1 (do
+		(<< prog (get lines i))
+	))
+
+	(return prog)
+)
+
+(func prog_hilbert (result str)
+	(let lines (arr str) (alloc (arr str)
+		"(func rot (param n int )(param xy (vec 2 int ))(param rx int )(param ry int )(if (= ry 0 )(then (if (\n"
+		"= rx 1 )(then (set xy 0 (- (- n 1 )(get xy 0 )))(set xy 1 (- (- n 1 )(get xy 1 )))))(let t int (get xy\n"
+		"0 ))(set xy 0 (get xy 1 ))(set xy 1 t ))))(func d2xy (param n int )(param d int )(param xy (vec 2 int\n"
+		"))(let rx int )(let ry int )(let t int d )(set xy 0 0 )(set xy 1 0 )(for s 1 (< s n )s (do (set rx (&\n"
+		"1 (/ t 2 )))(set ry (& 1 (^ t rx )))(call rot s xy rx ry )(set xy 0 (+ (get xy 0 )(* s rx )))(set xy 1\n"
+		"(+ (get xy 1 )(* s ry )))(set t (/ t 4 )))))(func hilbert_curve (param n int )(result (arr (vec 2 int\n"
+		")))(let pts (arr (vec 2 int ))(alloc (arr (vec 2 int ))))(for d 0 (< d (* n n ))1 (do (let xy (vec 2 int\n"
+		")(alloc (vec 2 int )))(call d2xy n d xy )(insert pts (# pts )xy )))(return pts ))(func draw_curve (param\n"
+		"pts (arr (vec 2 int )))(param n int )(result str )(local canv (arr int )(alloc (arr int )))(let m int\n"
+		"(- (* n 3 )2 ))(for i 0 (< i (* n m ))1 (do (insert canv (# canv )' ' )))(for i 1 (< i (# pts ))1 (do\n"
+		"(let p0 (vec 2 int )(get pts (- i 1 )))(let p1 (vec 2 int )(get pts i ))(let dx int (- (get p1 0 )(get\n"
+		"p0 0 )))(if (= dx 0 )(then (let row int (? (> (get p1 1 )(get p0 1 ))(get p1 1 )(get p0 1 )))(let col\n"
+		"int (* (get p1 0 )3 ))(set canv (+ (* row m )col )'|' ))(else (let row int (get p1 1 ))(let col int (\n"
+		"? (< (get p1 0 )(get p0 0 ))(get p1 0 )(get p0 0 )))(set col (+ (* col 3 )1 ))(set canv (+ (* row m )\n"
+		"col )'_' )(set canv (+ (* row m )col 1 )'_' )))))(let s str (alloc str ))(for i 0 (< i n )1 (do (for j\n"
+		"0 (< j m )1 (do (<< s (get canv (+ (* i m )j )))))(<< s '\\n' )))(return s ))(func main (result int )\n"
+		"(for order 1 (<= order 5 )1 (do (let n int (<< 1 order ))(local pts (arr (vec 2 int ))(call hilbert_curve\n"
+		"n ))(local s str (call draw_curve pts n ))(print s )(for i 0 (< i (# pts ))1 (do (free (get pts i )))\n"
+		")))(return 0 ))\n"
+	))
+
+	(let prog str (alloc str ""))
+	(for i 0 (< i (# lines)) 1 (do
+		(<< prog (get lines i))
+	))
+
+	(return prog)
+)
+
+(func prog_turing (result str)
+	(let lines (arr str) (alloc (arr str)
+		"(@define STAY 0 )(@define LEFT 1 )(@define RIGHT 2 )(struct transition (let q_curr int )(let q_targ int\n"
+		")(let sym_r int )(let sym_w int )(let shift int ))(struct machine (let state int )(let head int )(let\n"
+		"tape (map int int ))(let tmin int )(let tmax int ))(func step (param M (struct machine ))(param D (arr\n"
+		"(struct transition )))(let tape (map int int )(get M tape ))(for i 0 (< i (# D ))1 (do (if (&& (= (get\n"
+		"M state )(get D i q_curr ))(= (| (get tape (get M head ))0 )(get D i sym_r )))(then (set tape (get M head\n"
+		")(get D i sym_w ))(set M state (get D i q_targ ))(if (= (get D i shift )@LEFT )(then (set M head (- (\n"
+		"get M head )1 )))(else (if (= (get D i shift )@RIGHT )(then (set M head (+ (get M head )1 ))))))(break\n"
+		")))))(if (< (get M head )(get M tmin ))(then (set M tmin (get M head ))))(if (> (get M head )(get M tmax\n"
+		"))(then (set M tmax (get M head )))))(func draw (param M (struct machine ))(let s str (alloc str \"\"\n"
+		"))(for i (get M tmin )(<= i (get M tmax ))1 (do (<< s (? (= i (get M head ))(get M state )' ' ))(<< s\n"
+		"(? (get M tape i )'1' '_' ))(<< s \"  \" )))(print s ))(func turing (param D (arr (struct transition )\n"
+		"))(param q0 int )(param q1 int )(local M (struct machine )(alloc (struct machine )))(local tape (map int\n"
+		"int )(alloc (map int int )))(set M state q0 )(set M head 0 )(set M tape tape )(set M tmin 0 )(set M tmax\n"
+		"0 )(call draw M )(while 1 (do (call step M D )(call draw M )(if (= (get M state )q1 )(then (break )))\n"
+		")))(func defn (param D (arr (struct transition )))(param q_curr int )(param q_targ int )(param sym_r int\n"
+		")(param sym_w int )(param shift int )(let d (struct transition )(alloc (struct transition )))(set d q_curr\n"
+		"q_curr )(set d q_targ q_targ )(set d sym_r sym_r )(set d sym_w sym_w )(set d shift shift )(insert D (\n"
+		"# D )d ))(func beaver3 (local D (arr (struct transition ))(alloc (arr (struct transition ))))(call defn\n"
+		"D 'A' 'B' 0 1 @RIGHT )(call defn D 'A' 'C' 1 1 @LEFT )(call defn D 'B' 'A' 0 1 @LEFT )(call defn D 'B'\n"
+		"'B' 1 1 @RIGHT )(call defn D 'C' 'B' 0 1 @LEFT )(call defn D 'C' 'H' 1 1 @STAY )(call turing D 'A' 'H'\n"
+		")(for i 0 (< i (# D ))1 (do (free (get D i )))))(func beaver4 (local D (arr (struct transition ))(alloc\n"
+		"(arr (struct transition ))))(call defn D 'A' 'B' 0 1 @RIGHT )(call defn D 'A' 'B' 1 1 @LEFT )(call defn\n"
+		"D 'B' 'A' 0 1 @LEFT )(call defn D 'B' 'C' 1 0 @LEFT )(call defn D 'C' 'H' 0 1 @RIGHT )(call defn D 'C'\n"
+		"'D' 1 1 @LEFT )(call defn D 'D' 'D' 0 1 @RIGHT )(call defn D 'D' 'A' 1 0 @RIGHT )(call turing D 'A' 'H'\n"
+		")(for i 0 (< i (# D ))1 (do (free (get D i )))))(func main (result int )(call beaver4 )(return 0 ))\n"
+	))
+
+	(let prog str (alloc str ""))
+	(for i 0 (< i (# lines)) 1 (do
+		(<< prog (get lines i))
+	))
+
+	(return prog)
+)
+
+(func prog_compiler (result str)
+	(let lines (arr str) (alloc (arr str)
+		"(@include \"token.wax\" )(@include \"node.wax\" )(@include \"target_wax.wax\" )(@include \"target_js.wax\"\n"
+		")(func prog_helloworld (result str )(let lines (arr str )(alloc (arr str )\"(func main (result int)\"\n"
+		"\"  (print \\\"Hello World!\\\")\" \"  (return 0)\" \")\" ))(let prog str (alloc str \"\" ))(for i 0 (\n"
+		"< i (# lines ))1 (do (<< prog (get lines i ))))(return prog ))(func prog_fib (result str )(let lines (\n"
+		"arr str )(alloc (arr str )\";; Simple recursive function to compute\\n\" \";; Fibonacci numbers\\n\" \"(func fib (param i int) (result int)\"\n"
+		"\" (if (<= i 1) (then\\n\" \" (return i)\" \" ))\" \" (return (+\\n\" \" (call fib (- i 1))\\n\" \" (call fib (- i 2))\\n\"\n"
+		"\" ))\\n\" \")\" \"\\n\" \"(func main (result int)\\n\" \" (let x int (call fib 9))\\n\" \" (print x)\\n\"\n"
+		"\" (return 0)\\n\" \")\\n\" ))(let prog str (alloc str \"\" ))(for i 0 (< i (# lines ))1 (do (<< prog\n"
+		"(get lines i ))))(return prog ))(func prog_nqueens (result str )(let lines (arr str )(alloc (arr str )\n"
+		"\"(@define N 8 )(func attackable (param B (vec @N int ))(param y int )(result int )(let x int (get B y )\\n\"\n"
+		"\")(for i 1 (<= i y )1 (do (let t int (get B (- y i )))(if (|| (= t x )(= t (- x i ))(= t (+ x i )))(then\\n\"\n"
+		"\"(return 1 )))))(return 0 ))(func putboard (param B (vec @N int ))(param s int )(local o str (alloc str\\n\"\n"
+		"\"\\\"N=\\\" ))(<< o (cast @N str ))(<< o \\\" solution #\\\" )(<< o (cast s str ))(<< o \\\"\\\\n\\\" )(for y 0 (< y\\n\"\n"
+		"\"@N )1 (do (for x 0 (< x @N )1 (do (<< o (? (= (get B y )x )\\\"|Q\\\" \\\"|_\\\" ))))(<< o \\\"|\\\\n\\\" )))(print\\n\"\n"
+		"\"o ))(func solve (local B (vec @N int )(alloc (vec @N int )))(let s int 0 )(let y int 0 )(set B 0 -1 )\\n\"\n"
+		"\"(while (>= y 0 )(do (set B y (+ (get B y )1 ))(while (&& (< (get B y )@N )(call attackable B y ))(do (\\n\"\n"
+		"\"set B y (+ (get B y )1 ))))(if (< (get B y )@N )(then (if (< y (- @N 1 ))(then (set y (+ y 1 ))(set B\\n\"\n"
+		"\"y -1 ))(else (set s (+ s 1 ))(call putboard B s ))))(else (set y (- y 1 )))))))(func main (result int\\n\"\n"
+		"\")(call solve )(return 0 ))\\n\" ))(let prog str (alloc str \"\" ))(for i 0 (< i (# lines ))1 (do (<<\n"
+		"prog (get lines i ))))(return prog ))(func prog_hilbert (result str )(let lines (arr str )(alloc (arr\n"
+		"str )\"(func rot (param n int )(param xy (vec 2 int ))(param rx int )(param ry int )(if (= ry 0 )(then (if (\\n\"\n"
+		"\"= rx 1 )(then (set xy 0 (- (- n 1 )(get xy 0 )))(set xy 1 (- (- n 1 )(get xy 1 )))))(let t int (get xy\\n\"\n"
+		"\"0 ))(set xy 0 (get xy 1 ))(set xy 1 t ))))(func d2xy (param n int )(param d int )(param xy (vec 2 int\\n\"\n"
+		"\"))(let rx int )(let ry int )(let t int d )(set xy 0 0 )(set xy 1 0 )(for s 1 (< s n )s (do (set rx (&\\n\"\n"
+		"\"1 (/ t 2 )))(set ry (& 1 (^ t rx )))(call rot s xy rx ry )(set xy 0 (+ (get xy 0 )(* s rx )))(set xy 1\\n\"\n"
+		"\"(+ (get xy 1 )(* s ry )))(set t (/ t 4 )))))(func hilbert_curve (param n int )(result (arr (vec 2 int\\n\"\n"
+		"\")))(let pts (arr (vec 2 int ))(alloc (arr (vec 2 int ))))(for d 0 (< d (* n n ))1 (do (let xy (vec 2 int\\n\"\n"
+		"\")(alloc (vec 2 int )))(call d2xy n d xy )(insert pts (# pts )xy )))(return pts ))(func draw_curve (param\\n\"\n"
+		"\"pts (arr (vec 2 int )))(param n int )(result str )(local canv (arr int )(alloc (arr int )))(let m int\\n\"\n"
+		"\"(- (* n 3 )2 ))(for i 0 (< i (* n m ))1 (do (insert canv (# canv )' ' )))(for i 1 (< i (# pts ))1 (do\\n\"\n"
+		"\"(let p0 (vec 2 int )(get pts (- i 1 )))(let p1 (vec 2 int )(get pts i ))(let dx int (- (get p1 0 )(get\\n\"\n"
+		"\"p0 0 )))(if (= dx 0 )(then (let row int (? (> (get p1 1 )(get p0 1 ))(get p1 1 )(get p0 1 )))(let col\\n\"\n"
+		"\"int (* (get p1 0 )3 ))(set canv (+ (* row m )col )'|' ))(else (let row int (get p1 1 ))(let col int (\\n\"\n"
+		"\"? (< (get p1 0 )(get p0 0 ))(get p1 0 )(get p0 0 )))(set col (+ (* col 3 )1 ))(set canv (+ (* row m )\\n\"\n"
+		"\"col )'_' )(set canv (+ (* row m )col 1 )'_' )))))(let s str (alloc str ))(for i 0 (< i n )1 (do (for j\\n\"\n"
+		"\"0 (< j m )1 (do (<< s (get canv (+ (* i m )j )))))(<< s '\\\\n' )))(return s ))(func main (result int )\\n\"\n"
+		"\"(for order 1 (<= order 5 )1 (do (let n int (<< 1 order ))(local pts (arr (vec 2 int ))(call hilbert_curve\\n\"\n"
+		"\"n ))(local s str (call draw_curve pts n ))(print s )(for i 0 (< i (# pts ))1 (do (free (get pts i )))\\n\"\n"
+		"\")))(return 0 ))\\n\" ))(let prog str (alloc str \"\" ))(for i 0 (< i (# lines ))1 (do (<< prog (get\n"
+		"lines i ))))(return prog ))(func prog_turing (result str )(let lines (arr str )(alloc (arr str )\"(@define STAY 0 )(@define LEFT 1 )(@define RIGHT 2 )(struct transition (let q_curr int )(let q_targ int\\n\"\n"
+		"\")(let sym_r int )(let sym_w int )(let shift int ))(struct machine (let state int )(let head int )(let\\n\"\n"
+		"\"tape (map int int ))(let tmin int )(let tmax int ))(func step (param M (struct machine ))(param D (arr\\n\"\n"
+		"\"(struct transition )))(let tape (map int int )(get M tape ))(for i 0 (< i (# D ))1 (do (if (&& (= (get\\n\"\n"
+		"\"M state )(get D i q_curr ))(= (| (get tape (get M head ))0 )(get D i sym_r )))(then (set tape (get M head\\n\"\n"
+		"\")(get D i sym_w ))(set M state (get D i q_targ ))(if (= (get D i shift )@LEFT )(then (set M head (- (\\n\"\n"
+		"\"get M head )1 )))(else (if (= (get D i shift )@RIGHT )(then (set M head (+ (get M head )1 ))))))(break\\n\"\n"
+		"\")))))(if (< (get M head )(get M tmin ))(then (set M tmin (get M head ))))(if (> (get M head )(get M tmax\\n\"\n"
+		"\"))(then (set M tmax (get M head )))))(func draw (param M (struct machine ))(let s str (alloc str \\\"\\\"\\n\"\n"
+		"\"))(for i (get M tmin )(<= i (get M tmax ))1 (do (<< s (? (= i (get M head ))(get M state )' ' ))(<< s\\n\"\n"
+		"\"(? (get M tape i )'1' '_' ))(<< s \\\"  \\\" )))(print s ))(func turing (param D (arr (struct transition )\\n\"\n"
+		"\"))(param q0 int )(param q1 int )(local M (struct machine )(alloc (struct machine )))(local tape (map int\\n\"\n"
+		"\"int )(alloc (map int int )))(set M state q0 )(set M head 0 )(set M tape tape )(set M tmin 0 )(set M tmax\\n\"\n"
+		"\"0 )(call draw M )(while 1 (do (call step M D )(call draw M )(if (= (get M state )q1 )(then (break )))\\n\"\n"
+		"\")))(func defn (param D (arr (struct transition )))(param q_curr int )(param q_targ int )(param sym_r int\\n\"\n"
+		"\")(param sym_w int )(param shift int )(let d (struct transition )(alloc (struct transition )))(set d q_curr\\n\"\n"
+		"\"q_curr )(set d q_targ q_targ )(set d sym_r sym_r )(set d sym_w sym_w )(set d shift shift )(insert D (\\n\"\n"
+		"\"# D )d ))(func beaver3 (local D (arr (struct transition ))(alloc (arr (struct transition ))))(call defn\\n\"\n"
+		"\"D 'A' 'B' 0 1 @RIGHT )(call defn D 'A' 'C' 1 1 @LEFT )(call defn D 'B' 'A' 0 1 @LEFT )(call defn D 'B'\\n\"\n"
+		"\"'B' 1 1 @RIGHT )(call defn D 'C' 'B' 0 1 @LEFT )(call defn D 'C' 'H' 1 1 @STAY )(call turing D 'A' 'H'\\n\"\n"
+		"\")(for i 0 (< i (# D ))1 (do (free (get D i )))))(func beaver4 (local D (arr (struct transition ))(alloc\\n\"\n"
+		"\"(arr (struct transition ))))(call defn D 'A' 'B' 0 1 @RIGHT )(call defn D 'A' 'B' 1 1 @LEFT )(call defn\\n\"\n"
+		"\"D 'B' 'A' 0 1 @LEFT )(call defn D 'B' 'C' 1 0 @LEFT )(call defn D 'C' 'H' 0 1 @RIGHT )(call defn D 'C'\\n\"\n"
+		"\"'D' 1 1 @LEFT )(call defn D 'D' 'D' 0 1 @RIGHT )(call defn D 'D' 'A' 1 0 @RIGHT )(call turing D 'A' 'H'\\n\"\n"
+		"\")(for i 0 (< i (# D ))1 (do (free (get D i )))))(func main (result int )(call beaver4 )(return 0 ))\\n\"\n"
+		"))(let prog str (alloc str \"\" ))(for i 0 (< i (# lines ))1 (do (<< prog (get lines i ))))(return prog\n"
+		"))(func main (result int )(let prog str (call prog_turing ))(let tokens (arr str )(call token_parse prog\n"
+		"))(let root (struct node )(call node_from_tokens tokens ))(let out str (call node_to_js 0 root ))(print\n"
+		"out )(return 0 ))\n"
+	))
+
+	(let prog str (alloc str ""))
+	(for i 0 (< i (# lines)) 1 (do
+		(<< prog (get lines i))
+	))
+
+	(return prog)
+)
+
+
+(func main (result int)
+	; (let prog str (call prog_helloworld))
+	; (let prog str (call prog_fib))
+	; (let prog str (call prog_nqueens))
+	; (let prog str (call prog_hilbert))
+	; (let prog str (call prog_turing))
+	(let prog str (call prog_compiler))
+
+	(let tokens (arr str) (call token_parse prog))
+
+	(let root (struct node) (call node_from_tokens tokens))
+
+	(let out str (call node_to_js 0 root))
+	(print out)
+
+	(return 0)
+)

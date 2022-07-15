@@ -1,0 +1,186 @@
+(let vdom.dom (struct vdom.element) (call vdom.element_new ""))
+(let vdom.dom_event_map (map str (func (param event (struct vdom.event)))))
+(let vdom.dom_background_pending int 0)
+(let vdom.dom_width int 800)
+(let vdom.dom_height int 600)
+
+(@if TARGET_CPP 1
+	(asm "#include \"webview.h\"")
+
+	(asm "void __vdom__dom_onload(void);")
+	(asm "void __vdom__dom_onresize(int width, int height);")
+	(asm "void __vdom__dom_event(std::string id, std::string type, int client_x, int client_y, int offset_x, int offset_y);")
+	(asm "void __vdom__dom_background();")
+	(asm "webview::webview _webview(640,480,false,true);")
+
+	(asm "void _webview_init(std::string js) {")
+	(asm "  _webview.bind(\"dom_event\", [](std::string s) -> std::string {__vdom__dom_event(")
+	(asm "    webview::json_parse(s, "", 0), // id")
+	(asm "    webview::json_parse(s, "", 1), // type")
+	(asm "    std::stoi(webview::json_parse(s, "", 2)), // client_x")
+	(asm "    std::stoi(webview::json_parse(s, "", 3)), // client_y")
+	(asm "    std::stoi(webview::json_parse(s, "", 4)), // offset_x")
+	(asm "    std::stoi(webview::json_parse(s, "", 5)) // offset_y")
+	(asm "    ); return s;}")
+	(asm "  );")
+	(asm "  _webview.bind(\"dom_onload\", [](std::string s) -> std::string {__vdom__dom_onload(); return s;});")
+	(asm "  _webview.bind(\"dom_onresize\", [](std::string s) -> std::string {__vdom__dom_onresize(std::stoi(webview::json_parse(s, "", 0)), std::stoi(webview::json_parse(s, "", 1))); return s;});")
+	(asm "  _webview.bind(\"dom_background\", [](std::string s) -> std::string {__vdom__dom_background(); return s;});")
+	(asm "  _webview.init(js);")
+	(asm "  _webview.navigate(\"data:image/svg+xml, <svg id='root' version='1.1' xmlns='http://www.w3.org/2000/svg'></svg>\");")
+	(asm "}")
+
+	(func vdom.dom_init
+		(set vdom.dom_event_map (alloc (map str (func (param event (struct vdom.event))))))
+
+		(let js str "")
+		(<< js "let _webview_element;")
+		(<< js "let _webview_element_stack = [];")
+		(<< js "let _webview_element_selected;")
+
+		(<< js "function dom_timer() {")
+		(<< js "  dom_background();")
+		(<< js "  setTimeout(dom_timer, 10);")
+		(<< js "}")
+		(<< js "dom_timer();")
+		(<< js "dom_onload('');")
+		(<< js "dom_onresize(window.innerWidth, window.innerHeight);")
+		(<< js "window.onresize = function() { dom_onresize(window.innerWidth, window.innerHeight); };")
+
+		(<< js "function _webview_dom_event(id, type, evt) {")
+		(<< js "  if (type == 'contextmenu') {evt.preventDefault();}")
+		(<< js "  if (type != 'contextmenu' && type != 'pointerup' && evt.button > 0) {return; };")
+		(<< js "  let client_x = evt.clientX;")
+		(<< js "  let client_y = evt.clientY;")
+		(<< js "  let bbox = evt.target.getBoundingClientRect();")
+		(<< js "  let offset_x = evt.clientX - bbox.x;")
+		(<< js "  let offset_y = evt.clientY - bbox.y;")
+		(<< js "  dom_event(id, type, client_x, client_y, offset_x, offset_y);")
+		(<< js "}")
+
+		(<< js "function _webview_element_select_path(path) {")
+		(<< js "  _webview_element_selected = document.documentElement;")
+		(<< js "  for (var i = 0; i < path.length; i++) {")
+		(<< js "    _webview_element_selected = _webview_element_selected.children[path[i]];")
+		(<< js "  }")
+		(<< js "  _webview_element_stack = [];")
+		(<< js "}")
+
+		(call _webview_init js)
+	)
+
+	(func vdom.dom_event (param id str) (param type str) (param client_x int) (param client_y int) (param offset_x int) (param offset_y int)
+		(let event (struct vdom.event) (alloc (struct vdom.event)))
+		(set event type type)
+		(set event client_x client_x)
+		(set event client_y client_y)
+		(set event offset_x offset_x)
+		(set event offset_y offset_y)
+
+		(let m str id)
+		(<< m ":")
+		(<< m type)
+
+		(let fn (func (param event (struct vdom.event))) (get vdom.dom_event_map m))
+		(call fn event)
+	)
+
+	(func vdom.dom_element_write (param element (struct vdom.element))
+		(let name str (get element name))
+		(asm "_webview.eval(\"_webview_element = document.createElementNS('http://www.w3.org/2000/svg', '\" + name + \"');\");")
+
+		(for attr value (get element attr) (do
+			(if (= attr "text") (then
+				(asm "_webview.eval(\"_webview_element.textContent='\" + value + \"'\");")
+			) (else
+				(asm "_webview.eval(\"_webview_element.setAttribute('\" + attr + \"', '\" + value + \"');\");")
+			))
+		))
+
+		(for type handler (get element event) (do
+			(let id str (get element attr "id"))
+			(let m str id)
+			(<< m ":")
+			(<< m type)
+
+			(set vdom.dom_event_map m handler)
+			(asm "_webview.eval(\"_webview_element.addEventListener('\" + type + \"', function(evt) { try{evt.target.releasePointerCapture(evt.pointerId);}catch{}_webview_dom_event('\"+id+\"', '\"+type+\"', evt); });\");")
+		))
+
+		(for i 0 (< i (# (get element child))) 1 (do
+			(asm "_webview.eval(\"_webview_element_stack.push(_webview_element);\");")
+			(call vdom.dom_element_write (get element child i))
+			(asm "_webview.eval(\"_webview_element_selected = _webview_element_stack.pop();\");")
+			(asm "_webview.eval(\"_webview_element_selected.appendChild(_webview_element);\");")
+			(asm "_webview.eval(\"_webview_element = _webview_element_selected;\");")
+		))
+	)
+
+	(func vdom.dom_patch (param patch (struct vdom.patch))
+		(let path str "[")
+		(for i 0 (< i (# (get patch path))) 1 (do
+			(if (> i 0) (then (<< path ",")))
+			(<< path (cast (get patch path i) str))
+		))
+		(<< path "]")
+
+		(if (= (get patch type) vdom.PATCH_REPLACE) (then
+			; (asm "__vdom__dom_event_map.clear()")
+
+			(call vdom.dom_element_write (get patch element))
+			(asm "_webview.eval(\"_webview_element_select_path(\" + path + \");\");")
+			(asm "_webview.eval(\"_webview_element_selected.replaceWith(_webview_element);\");")
+		))
+		(if (= (get patch type) vdom.PATCH_UPDATE) (then
+			(asm "_webview.eval(\"_webview_element_select_path(\" + path + \");\");")
+			(asm "_webview.eval(\"_webview_element = _webview_element_selected\");")
+
+			(for attr value (get patch element attr) (do
+				(if (= attr "text") (then
+					(asm "_webview.eval(\"_webview_element.textContent='\" + value + \"'\");")
+				) (else
+					(asm "_webview.eval(\"_webview_element.setAttribute('\" + attr + \"', '\" + value + \"');\");")
+				))
+			))
+		))
+	)
+
+	(func vdom.update
+		(let dom (struct vdom.element) (call vdom.dom_render_func))
+
+		(let path (arr int) (alloc (arr int)))
+		(let patch (arr (struct vdom.patch)) (call vdom.diff vdom.dom dom path))
+
+		; (call vdom.patch_dump patch)
+
+		(for i 0 (< i (# patch)) 1 (do
+			(call vdom.dom_patch (get patch i))
+		))
+		(set vdom.dom dom)
+	)
+
+	(func vdom.update_background
+		(set vdom.dom_background_pending 1)
+	)
+
+	(func vdom.dom_background
+		(if vdom.dom_background_pending (then
+			(call vdom.update)
+			(set vdom.dom_background_pending 0)
+		))
+	)
+
+	(func vdom.dom_onload
+		(call vdom.update)
+	)
+
+	(func vdom.dom_onresize (param width int) (param height int)
+		(set vdom.dom_width width)
+		(set vdom.dom_height height)
+		(call vdom.update)
+	)
+
+	(func vdom.dom_run
+		(asm "_webview.run();")
+	)
+)

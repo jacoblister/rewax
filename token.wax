@@ -1,0 +1,169 @@
+; ---------------------------------------------------------------------------- 
+; - Tokenizer -
+; ---------------------------------------------------------------------------- 
+(@define TOKEN_CHAR_TAB '\t')
+(@define TOKEN_CHAR_NL '\n')
+(@define TOKEN_CHAR_CR '\r')
+(@define TOKEN_CHAR_SPACE ' ')
+(@define TOKEN_CHAR_DOUBLE_QUOTE '"')
+(@define TOKEN_CHAR_SINGLE_QUOTE '\'')
+(@define TOKEN_CHAR_PAREN_OPEN '(')
+(@define TOKEN_CHAR_PAREN_CLOSE ')')
+(@define TOKEN_CHAR_SEMICOLON ';')
+(@define TOKEN_CHAR_BACKSLASH '\\')
+
+(@define TOKEN_TYPE_NORMAL 0)
+(@define TOKEN_TYPE_PAREN 1)
+(@define TOKEN_TYPE_COMMENT 2)
+
+(struct token_file
+	(let name str)
+)
+
+(struct token
+	(let type int)
+	(let value str)
+	(let file (struct token_file))
+	(let newlines int) ; number of newlines before this token
+	(let linenumber int)
+)
+
+(func token_new (param type int) (param value str) (param file (struct token_file)) (param newlines int) (param linenumber int) (result (struct token))
+	(let t (struct token) (alloc (struct token)))
+	(set t type type)
+	(set t value value)
+	(set t file file)
+	(set t newlines newlines)
+	(set t linenumber linenumber)
+	(return t)
+)
+
+(func token_parse (param input str) (param filename str) (param comments int) (result (arr (struct token)))
+	(let file (struct token_file) (alloc (struct token_file)))
+	(set file name filename)
+	(let token str (alloc str))
+	(let tokens (arr (struct token)) (alloc (arr (struct token))))
+	(let newlines int 0)
+	(let linenumber int 1)
+	(let in_comment int 0)
+	(let in_single_quote int 0)
+	(let in_double_quote int 0)
+	(let in_quote int 0)
+	(let in_quote_escape int 0)
+
+	(for i 0 (< i (# input)) 1 (do
+		(let c int (get input i))
+
+		(if in_quote_escape (then
+			(set in_quote_escape 0)
+		) (else
+			(if (&& (! in_double_quote) (= c @TOKEN_CHAR_SINGLE_QUOTE)) (then
+				(set in_single_quote (! in_single_quote))
+			))
+			(if (&& (! in_single_quote) (= c @TOKEN_CHAR_DOUBLE_QUOTE)) (then
+				(set in_double_quote (! in_double_quote))
+			))
+			(set in_quote (|| in_single_quote in_double_quote))
+
+			(if in_quote (then
+				(if (= c @TOKEN_CHAR_BACKSLASH) (then
+					(set in_quote_escape 1)
+				))
+			))
+			(if (! in_quote) (then
+				(if (= c @TOKEN_CHAR_SEMICOLON) (then
+					(set in_comment 1)
+				))
+			))
+			(if (= c @TOKEN_CHAR_NL) (then
+				(if in_comment (then
+					(if (<> comments 0) (then
+						(insert tokens (# tokens) (call token_new @TOKEN_TYPE_COMMENT token file newlines linenumber))
+						(set newlines 0)
+					))
+					(set token "")
+				))
+				(set in_comment 0)
+			))
+		))
+
+		(let whitespace int (|| (= c @TOKEN_CHAR_TAB) (= c @TOKEN_CHAR_SPACE) (= c @TOKEN_CHAR_NL) (= c @TOKEN_CHAR_CR)))
+		(let paren int (|| (= c @TOKEN_CHAR_PAREN_OPEN) (= c @TOKEN_CHAR_PAREN_CLOSE)))
+
+		(if (&& (! in_quote) (! in_comment) (|| whitespace paren)) (then
+			(if (> (# token) 0) (then
+				(insert tokens (# tokens) (call token_new @TOKEN_TYPE_NORMAL token file newlines linenumber))
+				(set newlines 0)
+			))
+
+			(if paren (then
+				(set token "")
+				(<< token (get input i))
+				(insert tokens (# tokens) (call token_new @TOKEN_TYPE_PAREN token file newlines linenumber))
+				(set newlines 0)
+			))
+
+			(set token "")
+		) (else
+			(<< token (get input i))
+		))
+
+		(if (= c @TOKEN_CHAR_NL) (then
+			(set newlines (+ newlines 1))
+			(set linenumber (+ linenumber 1))
+		))
+	))
+
+	(return tokens)
+)
+
+(func token_write_to_output (param tokens (arr (struct token)))
+	(print "count:")
+	(print (# tokens))
+	(print "")
+	(for i 0 (< i (# tokens)) 1 (do
+		(print (get tokens i value))
+	))
+)
+
+(func token_to_string (param tokens (arr (struct token))) (param width int) (result str)
+	(let s str (alloc str ""))
+	(let line str (alloc str ""))
+	(for i 0 (< i (# tokens)) 1 (do
+		(let token str "")
+		(for j 0 (< j (# (get tokens i value))) 1 (do
+			(let c int (get tokens i value j))
+			(let encoded str "")
+			(<< encoded c)
+			(if (= c '\"') (then
+				(set encoded "\\\"")
+			))
+			(if (= c '\\') (then
+				(set encoded "")
+				(<< encoded '\\')
+				(<< encoded '\\')
+			))
+			(<< token encoded)
+		))
+
+		(<< line token)
+		(if (> (# line) width) (then
+			(<< s "\"")
+			(<< s line)
+			(<< s "\\n\"\n")
+			(set line "")
+		) (else
+			(if (&&
+				(<> token "(")
+				(<> token ")")
+			) (then
+				(<< line " ")
+			))
+		))
+	))
+	(<< s "\"")
+	(<< s line)
+	(<< s "\\n\"\n")
+
+	(return s)
+)

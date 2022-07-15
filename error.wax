@@ -1,0 +1,26 @@
+(extern error_exit (param msg str))
+(@if TARGET_TS 1
+	(asm "function error_exit(msg) { throw(msg) }")
+)
+(@if TARGET_JS 1
+	(asm "function error_exit(msg) { throw(msg) }")
+)
+(@if TARGET_CPP 1
+	(asm "void error_exit(std::string msg) { std::cerr << msg; exit(1); }")
+)
+(@if TARGET_C 1
+	(asm "void error_exit(char *msg) { puts(msg); exit(1); }")
+)
+
+(func compile_error (param module str) (param node (struct node)) (param msg str)
+    (let out str module)
+    (<< out " error: ")
+    (<< out (get node token file name))
+    (<< out ", line ")     
+    (<< out (cast (get node token linenumber) str))
+    (<< out "\n  ")
+
+    (<< out msg)
+    (<< out "\n\n")
+	(call error_exit out)
+)

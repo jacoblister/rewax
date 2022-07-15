@@ -1,0 +1,25 @@
+(struct vdom.event
+	(let type str)
+	(let data str)
+	(let client_x int)
+	(let client_y int)
+	(let offset_x int)
+	(let offset_y int)
+)
+
+(struct vdom.element
+	(let name str)
+	(let attr (map str str))
+	(let child (arr (struct vdom.element)))
+	(let event (map str (func (param event (struct vdom.event)))))
+)
+
+(func vdom.element_new (param name str) (result (struct vdom.element))
+	(let element (struct vdom.element) (alloc (struct vdom.element)))
+	(set element name name)
+	(set element attr (alloc (map str str)))
+	(set element child (alloc (arr (struct vdom.element))))
+	(set element event (alloc (map str (func (param event (struct vdom.event))))))
+
+	(return element)
+)

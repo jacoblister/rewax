@@ -1,0 +1,40 @@
+(func vdom.element_to_xml (param depth int) (param element (struct vdom.element)) (result str)
+    (let dom str "")
+
+    (for i 0 (< i depth) 1 (do
+        (<< dom "\t")
+    ))
+
+    (<< dom "<")
+    (<< dom (get element name))
+
+    (for k v (get element attr) (do
+        (<< dom " ")
+        (<< dom k)
+        (<< dom "=\"")
+        (<< dom v)
+        (<< dom "\"")
+    ))  
+
+    (if (> (# (get element child)) 0) (do
+        (<< dom ">")
+        (if (= (get element name) "text") (then
+            (<< dom (get element child 0 name))
+        ) (else 
+            (<< dom "\n")
+            (for i 0 (< i (# (get element child))) 1 (do
+                (<< dom (call vdom.element_to_xml (+ depth 1) (get element child i)))
+            ))
+            (for i 0 (< i depth) 1 (do
+                (<< dom "\t")
+            ))
+        ))
+        (<< dom "</")
+        (<< dom (get element name))
+        (<< dom ">\n")
+    ) (else
+        (<< dom "/>\n")
+    ))
+ 
+    (return dom)
+)

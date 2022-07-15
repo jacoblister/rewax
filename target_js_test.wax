@@ -1,0 +1,39 @@
+(@include "test.wax")
+(@include "token.wax")
+(@include "node.wax")
+(@include "target_js.wax")
+
+(func note_to_js_test_empty
+	; Given - root node only
+	(let test (struct test_test) (call test_init "note_to_js_test_empty"))
+	(let node_root (struct node) (call node_new @NODE_ROOT ""))
+
+	; When
+	(let js str (call node_to_js 0 node_root))
+
+	; Then
+	(call test_assert_equal test "" js "js source code")
+)
+
+(func note_to_js_test_simple
+	; Given - single child node, main function only
+	(let test (struct test_test) (call test_init "note_to_js_test_simple"))
+	(let node_root (struct node) (call node_new @NODE_ROOT ""))
+	(let node_func (struct node) (call node_new @NODE_EXPR "func"))
+	(insert (get node_root child) (# (get node_root child)) node_func)
+	(let node_func_main (struct node) (call node_new @NODE_STR "main"))
+	(insert (get node_func child) (# (get node_func child)) node_func_main)
+
+	; When
+	(let js str (call node_to_js 0 node_root))
+
+	; Then
+	(call test_assert_equal test "function main() {}\n(typeof process == 'undefined') ? main([]) : process.exit(main(process.argv.slice(1)));\n" js "js source code")
+)
+
+(func main (result int)
+	(call note_to_js_test_empty)
+	(call note_to_js_test_simple)
+
+	(return (call test_result))
+)

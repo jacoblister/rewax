@@ -1,0 +1,121 @@
+(@include "test.wax")
+(@include "token.wax")
+
+(func token_parse_test_empty
+	; Given
+	(let test (struct test_test) (call test_init "token_parse_test_empty"))
+	(let source str "")
+
+	; When
+	(let tokens (arr (struct token)) (call token_parse source "" 1))
+
+	; Then
+	(call test_assert_equal test (cast 0 str) (cast (# tokens) str) "correct number of tokens")
+)
+
+(func token_parse_test_single_word
+	; Given
+	(let test (struct test_test) (call test_init "token_parse_test_simple"))
+	(let source str "main\n")
+
+	; When
+	(let tokens (arr (struct token)) (call token_parse source "" 1))
+
+	; Then
+	; Bug - will fail without terminating newline
+	(call test_assert_equal test (cast 1 str) (cast (# tokens) str) "correct number of tokens")
+	(call test_assert_equal test "main" (get tokens 0 value) "correct token 0")
+)
+
+(func token_parse_test_simple
+	; Given
+	(let test (struct test_test) (call test_init "token_parse_test_simple"))
+	(let source str "(func main)")
+
+	; When
+	(let tokens (arr (struct token)) (call token_parse source "" 1))
+
+	; Then
+	(call test_assert_equal test (cast 4 str) (cast (# tokens) str) "correct number of tokens")
+	(call test_assert_equal test "(" (get tokens 0 value) "correct token 0")
+	(call test_assert_equal test "func" (get tokens 1 value) "correct token 1")
+	(call test_assert_equal test "main" (get tokens 2 value) "correct token 2")
+	(call test_assert_equal test ")" (get tokens 3 value) "correct token 3")
+)
+
+(func token_parse_test_comment
+	; Given
+	(let test (struct test_test) (call test_init "token_parse_test_comment"))
+	(let source str ";a comment\ntoken\n")
+
+	; When
+	(let tokens (arr (struct token)) (call token_parse source "" 1))
+
+	; Then
+	(call test_assert_equal test (cast 2 str) (cast (# tokens) str) "correct number of tokens")
+	; (call test_assert_equal test (cast @TOKEN_TYPE_COMMENT str) (get tokens 0 type) "correct token 0 type")
+	(call test_assert_equal test ";a comment" (get tokens 0 value) "correct token 0")
+	; (call test_assert_equal test (cast @TOKEN_TYPE_NORMAL str) (get tokens 1 type) "correct token 1 type")
+	(call test_assert_equal test "token" (get tokens 1 value) "correct token 0")
+)
+
+(func token_parse_test_quoted_space
+	; Given
+	(let test (struct test_test) (call test_init "token_parse_test_quoted_space"))
+	(let source str "\"\\\"a = 1\\\" next\"\n")
+
+	; When
+	(let tokens (arr (struct token)) (call token_parse source "" 1))
+
+	; Then
+	(call test_assert_equal test (cast 1 str) (cast (# tokens) str) "correct number of tokens")
+	(call test_assert_equal test "\"\\\"a = 1\\\" next\"" (get tokens 0 value) "correct token 0")
+)
+
+(func token_parse_test_linenumber
+	; Given
+	(let test (struct test_test) (call test_init "token_parse_test_linenumber"))
+	(let source str "line0 line0\nline1\n\nline3\n")
+
+	; When
+	(let tokens (arr (struct token)) (call token_parse source "" 1))
+
+	; Then
+	(call test_assert_equal test (cast 4 str) (cast (# tokens) str) "correct number of tokens")
+	(call test_assert_equal test "line0" (get tokens 0 value) "correct token 0")
+	(call test_assert_equal test (cast 0 str) (cast (get tokens 0 newlines) str) "correct token 0 newlines")
+	(call test_assert_equal test (cast 1 str) (cast (get tokens 0 linenumber) str) "correct token 0 linenumber")
+	(call test_assert_equal test "line0" (get tokens 1 value) "correct token 0")
+	(call test_assert_equal test (cast 0 str) (cast (get tokens 1 newlines) str) "correct token 1 newlines")
+	(call test_assert_equal test (cast 1 str) (cast (get tokens 1 linenumber) str) "correct token 1 linenumber")
+	(call test_assert_equal test "line1" (get tokens 2 value) "correct token 1")
+	(call test_assert_equal test (cast 1 str) (cast (get tokens 2 newlines) str) "correct token 2 newlines")
+	(call test_assert_equal test (cast 2 str) (cast (get tokens 2 linenumber) str) "correct token 2 linenumber")
+	(call test_assert_equal test "line3" (get tokens 3 value) "correct token 2")
+	(call test_assert_equal test (cast 2 str) (cast (get tokens 3 newlines) str) "correct token 3 newlines")
+	(call test_assert_equal test (cast 4 str) (cast (get tokens 3 linenumber) str) "correct token 3 linenumber")
+)
+
+(func token_parse_test_helloworld
+	; Given
+	(let test (struct test_test) (call test_init "token_parse_test_helloworld"))
+	(let source str "(func main (result int)\n(print \"HelloWorld!\")\n(return 0))")
+
+	; When
+	(let tokens (arr (struct token)) (call token_parse source "" 1))
+
+	; Then
+	(call test_assert_equal test (cast 16 str) (cast (# tokens) str) "correct number of tokens")
+)
+
+(func main (result int)
+	(call token_parse_test_empty)
+	(call token_parse_test_single_word)
+	(call token_parse_test_simple)
+	(call token_parse_test_comment)
+	(call token_parse_test_quoted_space)
+	(call token_parse_test_linenumber)
+	(call token_parse_test_helloworld)
+
+	(return 0)
+)

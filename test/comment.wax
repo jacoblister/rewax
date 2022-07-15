@@ -1,0 +1,16 @@
+; top level comment
+; top level comment
+
+(func comment_test ; inline comment
+  ; block level comment
+  ; block level comment
+
+  (print "comment_test:")
+
+  (print "done")
+)
+
+(func main (result int)
+  (call comment_test)
+  (return 0)
+)

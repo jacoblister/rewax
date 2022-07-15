@@ -1,0 +1,10 @@
+(func str_comment_test
+  (print "str_comment_test:")
+  (let comment str "; line comment")
+  (print comment)
+)
+
+(func main (result int)
+  (call str_comment_test)
+  (return 0)
+)

@@ -1,0 +1,78 @@
+(func str_alloc_test
+  (print "str_noasign_test:")
+  (let str_noalloc str)
+  ; (print str_noalloc) - results in 'null', or 'undefined' (varies by target)
+
+  (print "str_asign_test:")
+  (let str_asign str "init")
+  (print str_asign)
+
+  (print "str_alloc_test:")
+  (let str_alloc str (alloc str))
+  (print str_alloc)
+
+  (print "str_alloc_asign_test:")
+  (let str_alloc_init str (alloc str "init"))
+  (print str_alloc_init)
+)
+
+(func str_append_test
+  (print "str_append_test:")
+  (let s str (alloc str "init:"))
+  (<< s "append")
+  (print s)
+  (set s "i2:")
+  (<< s "append")
+  (print s)
+
+  (print "str_append_int_test:")
+  (let sc str "init:")
+  ; (<< sc 65) - fails to covert to char for JS target
+  (print sc)
+)
+
+(func str_quote_test
+  (print "str_quote_test:")
+  (let double_quote str "quote double contains 'quote single' string")
+  (print double_quote)
+  (let double_quote_apostrophe str "quote double contains apostrophe's string")
+  (print double_quote_apostrophe)
+)
+
+(func str_char_test
+    (print "str_char_test:")
+    (let string str "()")
+    (let c int (get string 0))
+    ; (print (= c 40)) -  fail JS - boolean not int
+    (if (= c '(') (then (print "match")))
+)
+
+; (func str_get_test
+;     (print "str_get_test:")
+;     (let string str "ABC")
+;     ; (print (get string 1)) - fail JS - not converting to integer
+;     (print (cast (get string 1) int))
+; )
+
+; (func str_slice_test
+;     (print "str_slice_test:")
+;     (let string str "@value")
+;     (print (slice string 1 (- (# string) 1)))
+; )
+
+(func str_int_shift_operator_test
+  (print "str_int_shift_operator_test:")
+  (let non_string_op int (<< 1 8))
+  (print non_string_op)
+)
+
+(func main (result int)
+  (call str_alloc_test)
+  (call str_append_test)
+  (call str_quote_test)
+  (call str_char_test)
+  ; (call str_get_test)
+  ; (call str_slice_test)
+  (call str_int_shift_operator_test)
+  (return 0)
+)

@@ -1,0 +1,34 @@
+(func map_empty_test
+  (print "map_empty_test:")
+  (let m (map str int) (alloc (map str int)))
+)
+
+(func map_simple_test
+  (print "map_simple_test:")
+  (let m (map str int) (alloc (map str int)))
+  (set m "xyz" 123)
+  (print (get m "xyz"))
+  (remove m "xyz")
+  ; (print (get m "xyz")) - fail JS, 'undefined'
+)
+
+(func map_keys_test
+  (print "map_keys_test:")
+  (let m (map str int) (alloc (map str int)))
+  (set m "abc" 123)
+  (set m "xyz" 456)
+
+  (for k v m (do
+    (print "key is")
+    (print k)
+    (print "val is")
+    (print v)
+  ))  
+)
+
+(func main (result int)
+  (call map_empty_test)
+  (call map_simple_test)
+  (call map_keys_test)
+  (return 0)
+)

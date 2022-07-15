@@ -1,0 +1,102 @@
+(@include "../wax/test.wax")
+(@include "element.wax")
+(@include "diff.wax")
+
+(func diff_test_empty
+	; Given - empty current/target trees
+	(let test (struct test_test) (call test_init "diff_test_empty"))
+	(let current (struct vdom.element) (call vdom.element_new ""))
+	(let target (struct vdom.element) (call vdom.element_new ""))
+	(let path (arr int) (alloc (arr int)))
+
+	; When
+	(let patch (arr (struct vdom.patch)) (call vdom.diff current target path))
+
+	; Then
+	(call test_assert_equal test "0" (cast (# patch) str) "empty patch list")
+)
+
+(func diff_test_element
+	; Given - empty current, element in target
+	(let test (struct test_test) (call test_init "diff_test_element"))
+	(let current (struct vdom.element) (call vdom.element_new ""))
+	(let target (struct vdom.element) (call vdom.element_new "g"))
+	(let target_rect (struct vdom.element) (call vdom.element_new "rect"))
+	(set target_rect attr "width" "100")
+	(insert (get target child) 0 target_rect)
+	(let path (arr int) (alloc (arr int)))
+
+	; When
+	(let patch (arr (struct vdom.patch)) (call vdom.diff current target path))
+
+	; Then
+	(call test_assert_equal test "1" (cast (# patch) str) "single patch in list")
+	(call test_assert_equal test (cast @vdom.PATCH_REPLACE str) (cast (get patch 0 type) str) "patch type")
+	(call test_assert_equal test "1" (cast (# (get patch 0 element child)) str) "element count")
+	(call test_assert_equal test "g" (get patch 0 element name) "parent element name")
+	(call test_assert_equal test "rect" (get patch 0 element child 0 name) "child element name")
+	(call test_assert_equal test "100" (get patch 0 element child 0 attr "width") "attr width value")
+
+	; Given, When - no change in element tree
+	(set patch (call vdom.diff target target path))
+
+	; Then
+	(call test_assert_equal test "0" (cast (# patch) str) "empty patch list")
+)
+
+(func diff_test_attr
+	(let test (struct test_test) (call test_init "diff_test_empty"))
+
+	; Given - diff current/target element attributes
+	(let current (struct vdom.element) (call vdom.element_new "rect"))
+	(set current attr "width" "80%")
+	(let target (struct vdom.element) (call vdom.element_new "rect"))
+	(set target attr "width" "100%")
+	(set target attr "height" "80%")
+	(let path (arr int) (alloc (arr int)))
+
+	; When
+	(let patch (arr (struct vdom.patch)) (call vdom.diff current target path))
+
+	; Then
+	(call test_assert_equal test "1" (cast (# patch) str) "single patch")
+	(call test_assert_equal test (cast @vdom.PATCH_UPDATE str) (cast (get patch 0 type) str) "patch type")
+	(call test_assert_equal test "0" (cast (# (get patch 0 path)) str) "patch path")
+	(call test_assert_equal test "100%" (get patch 0 element attr "width") "correct width")
+	(call test_assert_equal test "80%" (get patch 0 element attr "height") "correct height")
+)
+
+(func diff_test_child_attr
+	(let test (struct test_test) (call test_init "diff_test_child_attr"))
+
+	; Given - diff current/target element attributes in child
+	(let current (struct vdom.element) (call vdom.element_new "g"))
+	(let current_rect (struct vdom.element) (call vdom.element_new "rect"))
+	(set current_rect attr "width" "80")
+	(insert (get current child) 0 current_rect)
+
+	(let target (struct vdom.element) (call vdom.element_new "g"))
+	(let target_rect (struct vdom.element) (call vdom.element_new "rect"))
+	(set target_rect attr "width" "100")
+	(insert (get target child) 0 target_rect)
+	(let path (arr int) (alloc (arr int)))
+
+	; When
+	(let patch (arr (struct vdom.patch)) (call vdom.diff current target path))
+
+	; Then
+	(call test_assert_equal test "1" (cast (# patch) str) "single patch")
+	(call test_assert_equal test (cast @vdom.PATCH_UPDATE str) (cast (get patch 0 type) str) "patch type")
+	(call test_assert_equal test "1" (cast (# (get patch 0 path)) str) "patch path")
+	(call test_assert_equal test "0" (cast (get patch 0 path 0) str) "patch path")
+	(call test_assert_equal test "100" (get patch 0 element attr "width") "correct width")
+)
+
+(func main (result int)
+	(call diff_test_empty)
+	(call diff_test_element)
+	(call diff_test_attr)
+	(call diff_test_child_attr)
+
+	(return 0)
+)

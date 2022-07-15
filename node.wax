@@ -1,0 +1,246 @@
+; ---------------------------------------------------------------------------- 
+; - S-Expression Node tree -
+; ---------------------------------------------------------------------------- 
+
+(@define NODE_ROOT 0)
+(@define NODE_EXPR 1)
+(@define NODE_PREPROCESS 2)
+(@define NODE_CHAR 3)
+(@define NODE_STR 4)
+(@define NODE_STR_QUOTE 5)
+(@define NODE_INT 6)
+(@define NODE_FLOAT 7)
+(@define NODE_COMMENT 8)
+
+(struct node
+	(let type int)
+	(let value str)
+	(let child (arr (struct node)))
+
+	(let token (struct token))
+)
+
+(func node_new (param type int) (param value str) (result (struct node))
+	(let node_new (struct node) (alloc (struct node)))
+	(set node_new type type)
+	(set node_new value value)
+	(set node_new child (alloc (arr (struct node))))
+	(set node_new token (alloc (struct token)))
+
+	(return node_new)
+)
+
+(func node_copy (param src (struct node)) (result (struct node))
+	(let res (struct node) (alloc (struct node)))
+	(set res type (get src type))
+	(set res value (get src value))
+
+	(set res child (alloc (arr (struct node))))
+	(for i 0 (< i (# (get src child))) 1 (do
+		(insert (get res child) i (call node_copy (get src child i)))
+	))
+	(set res token (get src token))
+
+	(return res)
+)
+
+(@define NODE_CHAR_DOUBLE_QUOTE '"')
+(@define NODE_CHAR_SINGLE_QUOTE '\'')
+(@define NODE_CHAR_MINUS '-')
+(@define NODE_CHAR_DECIMAL '.')
+(@define NODE_CHAR_ZERO '0')
+(@define NODE_CHAR_NINE '9')
+(@define NODE_CHAR_AT '@')
+
+(func node_type_from_token (param token str) (result int)
+	(if (> (# token) 0) (then
+		(let c int (get token 0))
+
+		(if (= c @NODE_CHAR_AT) (then
+			(return @NODE_PREPROCESS)
+		))
+		(if (= c @NODE_CHAR_SINGLE_QUOTE) (then
+			(return @NODE_CHAR)
+		))
+		(if (= c @NODE_CHAR_DOUBLE_QUOTE) (then
+			(return @NODE_STR_QUOTE)
+		))
+		(if (||
+			(&& (>= c @NODE_CHAR_ZERO) (<= c @NODE_CHAR_NINE))
+			(= c @NODE_CHAR_MINUS)
+		) (then
+			(for i 0 (< i (# token)) 1 (do
+				(set c (get token i))
+				(if (= c @NODE_CHAR_DECIMAL) (then
+					(return @NODE_FLOAT)
+				))
+			))
+			(return @NODE_INT)
+		))
+	))
+	(return @NODE_STR)
+)
+
+(func node_from_tokens (param tokens (arr (struct token))) (result (struct node))
+	(let stack (arr (struct node)) (alloc (arr (struct node))))
+	(insert stack (# stack) (call node_new @NODE_ROOT ""))
+
+	(let i int 0)
+	(while (< i (# tokens)) (do
+		(let token str (get tokens i value))
+		(if (= (get tokens i type) @TOKEN_TYPE_COMMENT) (then
+			(let child (struct node) (call node_new @NODE_COMMENT token))
+			(set child token (get tokens i))
+
+			(let node (struct node) (get stack (- (# stack) 1)))
+			(insert (get node child) (# (get node child)) child)
+		) (else
+			(if (= token "(") (then
+				(let value str "")
+				(let next_token str (get tokens (+ i 1) value))
+				(if (&& (<> next_token "(") (<> next_token ")")) (then
+					(set value next_token)
+				))
+				(let node (struct node)
+					(call node_new @NODE_EXPR value)
+				)
+				(set node token (get tokens i))
+				(if (<> value "") (then
+					(set i (+ i 1))
+				))
+
+				(let parent (struct node) (get stack (- (# stack) 1)))
+				(insert (get parent child) (# (get parent child)) node)
+				(insert stack (# stack) node)
+
+			) (else (if (= token ")") (then
+				(remove stack (- (# stack) 1) 1)
+			) (else
+				(let child (struct node) (call node_new (call node_type_from_token token) token))
+				(set child token (get tokens i))
+
+				(let node (struct node) (get stack (- (# stack) 1)))
+				(insert (get node child) (# (get node child)) child)
+			))))
+		))
+
+		(set i (+ i 1))
+	))
+
+	(return (get stack 0))
+)
+
+; eg (+ a b c) -> (+ (+ a b) c) 
+(func node_expand (param node_org (struct node)) (result (struct node))
+	(if (< (# (get node_org child)) 2) (then
+		(return node_org)
+	))
+
+	(let expanded (struct node) (call node_new @NODE_EXPR (get node_org value)))
+
+	(insert (get expanded child) (# (get expanded child)) (get node_org child 0))
+	(if (= (# (get node_org child)) 2) (then
+		(insert (get expanded child) (# (get expanded child)) (get node_org child 1))
+	) (else
+		(let expanded_child (struct node) (call node_new @NODE_EXPR (get node_org value)))
+		(for i 1 (< i (# (get node_org child))) 1 (do
+			(insert (get expanded_child child) (# (get expanded_child child)) (get node_org child i))
+		))
+
+		(insert (get expanded child) (# (get expanded child)) expanded_child)
+	))
+	(return expanded)
+)
+
+(func node_indent_needed (param node (struct node)) (param child (struct node)) (result int)
+	(if (<> (get child type) @NODE_EXPR) (then
+		(return 0)
+	))
+
+	(if (||
+		(= (get child value) "param")
+		(= (get child value) "result")
+	) (then
+		(return 0)
+	))
+	(if (||
+		(= (get node value) "")
+		(= (get node value) "func")
+		(= (get node value) "do")
+		(= (get node value) "then")
+		(= (get node value) "else")
+		(= (get node value) "struct")
+	) (then
+		(return 1)
+	))
+	(return 0)
+)
+
+(let node_to_wax_indent int 0)
+
+(func node_to_str (param depth int) (param node (struct node)) (result str)
+	(let s str (alloc str ""))
+
+	(if (= (get node type) @NODE_ROOT) (then
+		(for i 0 (< i (# (get node child))) 1 (do
+			(let child str (call node_to_str 0 (get node child i)))
+			(for j 0 (< j (get node child i token newlines)) 1 (do
+				(<< s "\n")
+			))
+			(<< s child)
+		))
+	))
+
+	(if (= (get node type) @NODE_EXPR) (then
+		(<< s "(")
+		(<< s (get node value))
+		(for i 0 (< i (# (get node child))) 1 (do
+			(let node_child (struct node) (get node child i))
+
+			(let indent_needed int (= (get node_child type) @NODE_EXPR))
+			(if node_to_wax_indent (then
+				(set indent_needed (call node_indent_needed node node_child))
+				(set indent_needed (|| indent_needed (= (get node value) "&&") (= (get node value) "||")))
+			))
+			(set indent_needed (> (get node_child token newlines) 0))
+			(let indent_depth int (? indent_needed depth (- depth 1)))
+			(let indent str "\t")
+
+			(if indent_needed (then
+				(for i 0 (< i (get node_child token newlines)) 1 (do
+					(<< s "\n")
+				))
+				(for i 0 (<= i indent_depth) 1 (do
+					(<< s indent)
+				))
+			) (else
+				(<< s " ")
+			))
+
+			(let child str (call node_to_str (+ indent_depth 1) node_child))
+			(<< s child)
+
+			(if (&&
+				indent_needed
+				(= i (- (# (get node child)) 1))
+			) (then
+				(<< s "\n")
+				(for i 0 (< i indent_depth) 1 (do
+					(<< s indent)
+				))
+			))
+		))
+		(<< s ")")
+	))
+
+	(if (<> (get node type) @NODE_EXPR) (then
+		(<< s (get node value))
+	))
+
+	(return s)
+)
+
+(func node_to_wax (param depth int) (param node (struct node)) (result str)
+	(set node_to_wax_indent 1)
+	(return (call node_to_str depth node))
+)

@@ -1,0 +1,67 @@
+(@define vdom.PATCH_UPDATE 0)
+(@define vdom.PATCH_REPLACE 1)
+
+(struct vdom.patch
+	(let type int)
+	(let path (arr int))
+	(let element (struct vdom.element))
+)
+
+; (func vdom.patch_dump (param patch (arr (struct vdom.patch)))
+; 	(print "PATCH:")
+; 	(for i 0 (< i (# patch)) 1 (do
+; 		(let path str "")
+; 		(for j 0 (< j (# (get patch i path))) 1 (do
+; 			(if (> j 0) (then (<< path ",")))
+; 			(<< path (cast (get patch i path j) str))
+; 		))
+; 		(print path)
+; 		(let xml str (call vdom.element_to_xml 0 (get patch i element)))
+; 		(print xml)
+; 	))
+; )
+
+(func vdom.diff (param current (struct vdom.element)) (param target (struct vdom.element)) (param path (arr int)) (result (arr (struct vdom.patch)))
+	(let patchList (arr (struct vdom.patch)) (alloc (arr (struct vdom.patch))))
+	(let patch (struct vdom.patch))
+
+	(if (||
+		(<> (get current attr "key") (get target attr "key"))
+		(<> (get current name) (get target name))
+		(<> (# (get current child)) (# (get target child)))
+	) (then
+		(set patch (alloc (struct vdom.patch)))
+		(set patch path path)
+		(set patch type @vdom.PATCH_REPLACE)
+		(set patch element target)
+		(insert patchList (# patchList) patch)
+		(return patchList)
+	))
+
+	(let attr_patch int 0)
+	(for k v (get target attr) (do
+		(if (<> v (get current attr k)) (do
+			(if (! attr_patch) (then
+				(set attr_patch 1)
+				(set patch (alloc (struct vdom.patch)))
+				(set patch path path)
+				(set patch type @vdom.PATCH_UPDATE)
+				(set patch element (call vdom.element_new (get target name)))
+				(insert patchList (# patchList) patch)
+			))
+			(set (get patch element attr) k v)
+		))
+	))
+
+	(for i 0 (< i (# (get target child))) 1 (do
+		(let pathCopy (arr int) (alloc (arr int))) (for j 0 (< j (# path)) 1 (do (insert pathCopy (# pathCopy) (get path j))))
+		(insert pathCopy (# pathCopy) i)
+		(let childPatch (arr (struct vdom.patch)) (call vdom.diff (get current child i) (get target child i) pathCopy))
+
+		(for j 0 (< j (# childPatch)) 1 (do
+			(insert patchList (# patchList) (get childPatch j))
+		))
+	))
+
+	(return patchList)
+)

@@ -1,0 +1,109 @@
+(@include "test.wax")
+(@include "token.wax")
+(@include "node.wax")
+
+(func node_type_from_token_test 
+	; Given
+	(let test (struct test_test) (call test_init "node_type_from_token_test"))
+
+	; When .. Then ... (Preprocess)
+	(let node_type int (call node_type_from_token "@PREPROCESS"))
+	(call test_assert_equal test (cast @NODE_PREPROCESS str) (cast node_type str) "preprocess token")
+
+	; When .. Then ... 
+	(set node_type (call node_type_from_token "'c'"))
+	(call test_assert_equal test (cast @NODE_CHAR str) (cast node_type str) "char token")
+
+	; When .. Then ... 
+	(set node_type (call node_type_from_token "\"QUOTE\""))
+	(call test_assert_equal test (cast @NODE_STR_QUOTE str) (cast node_type str) "quoted string token")
+
+	; When .. Then ... 
+	(set node_type (call node_type_from_token "-10"))
+	(call test_assert_equal test (cast @NODE_INT str) (cast node_type str) "int token")
+
+	; When .. Then ... 
+	(set node_type (call node_type_from_token "-10.1"))
+	(call test_assert_equal test (cast @NODE_FLOAT str) (cast node_type str) "float token")
+)
+
+(func node_from_token_test_empty
+	; Given
+	(let test (struct test_test) (call test_init "node_from_token_test_empty"))
+	(let tokens (arr (struct token)) (alloc (arr (struct token))))
+	(let file (struct token_file) (alloc (struct token_file)))
+	(insert tokens 0 (call token_new @TOKEN_TYPE_PAREN "(" file 0 0))
+	(insert tokens 1 (call token_new @TOKEN_TYPE_PAREN ")" file 0 0))
+
+	; When
+	(let node (struct node) (call node_from_tokens tokens))
+
+	; Then
+	(call test_assert_equal test (cast @NODE_ROOT str) (cast (get node type) str) "root node is correct type")
+	; bug: will fail - empty list sets value to closing ')'
+	; (call test_assert_equal test 0 (# (get node child)) "root node has 0 children")
+)
+
+(func node_from_token_test_function
+	; Given
+	(let test (struct test_test) (call test_init "node_from_token_test_function"))
+	(let tokens (arr (struct token)) (alloc (arr (struct token))))
+	(let file (struct token_file) (alloc (struct token_file)))
+	; (insert tokens 0 (call token_new @TOKEN_TYPE_COMMENT ";ignore comment" "" 0 0))
+	(insert tokens 0 (call token_new @TOKEN_TYPE_PAREN "(" file 0 0))
+	(insert tokens 1 (call token_new @TOKEN_TYPE_NORMAL "func" file 0 0))
+	(insert tokens 2 (call token_new @TOKEN_TYPE_NORMAL "main" file 0 0))
+	(insert tokens 3 (call token_new @TOKEN_TYPE_PAREN ")" file 0 0))
+
+	; When
+	(let node (struct node) (call node_from_tokens tokens))
+
+	; Then
+	(call test_assert_equal test (cast @NODE_ROOT str) (cast (get node type) str) "root node is correct type")
+	(call test_assert_equal test (cast 1 str) (cast (# (get node child)) str) "root node has 1 child")
+	(call test_assert_equal test (cast @NODE_EXPR str) (cast (get node child 0 type) str) "root node child has correct type")
+	(call test_assert_equal test "func" (get node child 0 value) "root node child has correct value")
+	(call test_assert_equal test (cast @NODE_STR str) (cast (get node child 0 child 0 type) str) "func child has correct type")
+	(call test_assert_equal test "main" (get node child 0 child 0 value) "func child has correct value")
+)
+
+(func note_to_wax_test_empty
+	; Given - root node only
+	(let test (struct test_test) (call test_init "note_to_wax_test_empty"))
+	(let node_root (struct node) (call node_new @NODE_ROOT ""))
+
+	; When
+	(let wax str (call node_to_wax 0 node_root))
+
+	; Then
+	(call test_assert_equal test "" wax "wax source code")
+)
+
+(func note_to_wax_test_simple
+	; Given - single child node
+	(let test (struct test_test) (call test_init "note_to_wax_test_simple"))
+	(let node_root (struct node) (call node_new @NODE_ROOT ""))
+	(set node_root token (alloc (struct token)))
+	(let node_func (struct node) (call node_new @NODE_EXPR "func"))
+	(set node_func token (alloc (struct token)))
+	(insert (get node_root child) (# (get node_root child)) node_func)
+	(let node_func_main (struct node) (call node_new @NODE_STR "main"))
+	(set node_func_main token (alloc (struct token)))
+	(insert (get node_func child) (# (get node_func child)) node_func_main)
+
+	; When
+	(let wax str (call node_to_wax 0 node_root))
+
+	; Then
+	(call test_assert_equal test "(func main)" wax "wax source code")
+)
+
+(func main (result int)
+	(call node_type_from_token_test)
+	(call node_from_token_test_empty)
+	(call node_from_token_test_function)
+	(call note_to_wax_test_empty)
+	(call note_to_wax_test_simple)
+
+	(return 0)
+)

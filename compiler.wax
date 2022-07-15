@@ -1,0 +1,87 @@
+(@include "token.wax")
+(@include "node.wax")
+(@include "error.wax")
+(@include "symbol.wax")
+(@include "fileio.wax")
+(@include "preprocess.wax")
+(@include "preprocess_vdom.wax")
+(@include "validate.wax")
+(@include "target_js.wax")
+(@include "target_cpp.wax")
+(@include "target_c.wax")
+
+(func compile (param target str) (param filename str) (result str)
+	(let prog str (call readfile filename))
+
+	(let out str (alloc str ""))
+
+	(let tokens (arr (struct token)) (call token_parse prog filename 0))
+	(let root (struct node) (call node_from_tokens tokens))
+	(set root (call preprocess root))
+	(set root (call preprocess_vdom root))
+    ; (call validate root)
+
+	(if (= target "--target=wax") (then
+		(set out (call node_to_wax 0 root))
+	))
+	(if (= target "--target=js") (then
+		(set out (call node_to_js 0 root))
+	))
+	(if (= target "--target=cpp") (then
+		(set out (call node_to_cpp 0 root))
+	))
+	(if (= target "--target=c") (then
+		(let symbol (arr (struct node_symbol)) (alloc (arr (struct node_symbol))))
+		(set out (call node_to_c 0 symbol root))
+	))
+
+	(return out)
+)
+
+(func format (param filename str) (result str)
+	(let prog str (call readfile filename))
+
+	(let tokens (arr (struct token)) (call token_parse prog filename 1))
+	(let root (struct node) (call node_from_tokens tokens))
+
+	(let out str (call node_to_wax 0 root))
+	(return out)
+)
+
+(func help (result str)
+	(let lines (arr str) (alloc (arr str)
+		"usage: \n\n"
+		"  wax <command> [arguments]\n\n"
+		"commands: \n\n"
+		"  build <--target=wax|--target=js|--target=cpp|--target=c> <filename.wax>\n"
+		"  fmt <filename.wax>\n"
+	))
+
+	(let help str (alloc str ""))
+	(for i 0 (< i (# lines)) 1 (do
+		(<< help (get lines i))
+	))
+
+	(return help)
+)
+
+(func main (param args (arr str)) (result int)
+	(if (< (# args) 3) (then
+		(print (call help))
+		(return 1)
+	))
+
+	(if (&& (= (# args) 4) (= (get args 1) "build")) (then
+		(let out str (call compile (get args 2) (get args 3)))
+		(print out)
+		(return 0)
+	))
+
+	(if (&& (= (# args) 3) (= (get args 1) "fmt")) (then
+		(print (call format (get args 2)))
+		(return 0)
+	))
+
+	(print (call help))
+	(return 0)
+)

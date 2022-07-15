@@ -1,0 +1,11 @@
+(@define N 8)
+
+(func define_value_test
+    (print "define_value_test:")
+    (print @N)
+)
+
+(func main (result int)
+    (call define_value_test)
+    (return 0)
+ )

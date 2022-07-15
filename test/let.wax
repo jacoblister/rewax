@@ -1,0 +1,81 @@
+(func let_int
+  (print "scalar_int_noasign:")
+  (let scalar_int_noasign int) 
+  ; (print scalar_int_noasign) - fail JS target 'undefined'
+
+  (print "scalar_int_asign=-2:")
+  (let scalar_int_asign int -2)
+  (print scalar_int_asign)
+)
+
+(func let_float
+  (print "scalar_float_noasign:")
+  (let scalar_float_noasign float) 
+  ; (print scalar_float_noasign) - fail JS target 'undefined'
+
+  (print "scalar_float_asign=-2.2:")
+  (let scalar_float_asign float -2.2)
+  (print scalar_float_asign)
+)
+
+(func let_str
+  (print "scalar_str_noasign:")
+  (let scalar_str_noasign str)
+  ; (print scalar_str_noasign) - fail JS target 'undefined'
+
+  (print "scalar_str_asign=\"abc\"")
+  (let scalar_str_asign str "abc")
+  (print scalar_str_asign)
+)
+
+(func let_vec
+  (let vec_noasign (vec 3 int))
+  (let vec_empty (vec 3 int) (alloc (vec 3 int)))
+  (let vec_asign (vec 3 int) (alloc (vec 3 int) 1 2 3))
+
+  (print "vec_noasign # [0] [1] [2]:")
+  ; (print (# vec_noasign)) waxc - error
+  ; (print (get vec_noasign 0)) waxc - error
+  ; (print (get vec_noasign 1)) waxc - error
+  ; (print (get vec_noasign 2)) waxc - error
+
+  (print "vec_empty # [0] [1] [2]:")
+  ; (print (# vec_empty)) waxc - error
+  ; (print (get vec_empty 0)) - fail JS target 'undefined'
+  ; (print (get vec_empty 1))
+  ; (print (get vec_empty 2))
+
+  (print "vec_asign # [0] [1] [2]:")
+  ; (print (# vec_empty)) waxc - error
+  (print (get vec_asign 0))
+  (print (get vec_asign 1))
+  (print (get vec_asign 2))
+)
+
+(func let_arr
+  (let arr_noasign (arr int))
+  (let arr_empty (arr int) (alloc (arr int)))
+  (let arr_asign (arr int) (alloc (arr int) 1 2 3))
+
+  (print "arr_noasign #:")
+  ; (print (# arr_noasign)) # waxc - error
+
+  (print "arr_empty #:")
+  (print (# arr_empty))
+
+  (print "arr_asign # [0] [1] [2]:")
+  (print (# arr_asign))
+  (print (get arr_asign 0))
+  (print (get arr_asign 1))
+  (print (get arr_asign 2))
+)
+
+(func main (result int)
+  (call let_int)
+  (call let_float)
+  (call let_str)
+  (call let_vec)
+  (call let_arr)
+
+  (return 0)
+)

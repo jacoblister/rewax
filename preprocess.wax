@@ -1,0 +1,199 @@
+(extern readfile (param filename str) (result str))
+
+(@define MODULE_PREPROCESS "Preprocess")
+(@define PREPROCESS_CHAR_STOP '.')
+(@define PREPROCESS_CHAR_SLASH '/')
+(@define PREPROCESS_CHAR_UNDERSCORE '_')
+
+(func preprocess_replace_node (param node (struct node)) (param define (map str (struct node)))
+	(if (= (get node type) @NODE_PREPROCESS) (then
+		(let k str "")
+		(for i 1 (< i (# (get node value))) 1 (do
+			(<< k (get node value i))
+		))
+
+		(let replace (struct node) (get (get define k) child 1))
+
+		(set node type (get replace type))
+		(set node value (get replace value))
+	))
+
+	(for i 0 (< i (# (get node child))) 1 (do
+		(call preprocess_replace_node (get node child i) define)
+	))
+)
+
+(func preprocess_replace (param node (struct node)) (result (struct node))
+	(let define (map str (struct node)) (alloc (map str (struct node))))
+	(let i int 0)
+	(while (< i (# (get node child))) (do
+		(if (= (get node child i value) "@define") (then
+			(set define (get node child i child 0 value) (get node child i))
+			(remove (get node child) i 1)
+		) (else
+			(call preprocess_replace_node (get node child i) define)
+			(set i (+ i 1))
+		))
+	))
+
+	(return node)
+)
+
+(func preprocess_package_rewrite_identifier (param package str) (param identifier (map str int)) (param node (struct node))
+	(let v str (get node value))
+	(if (= (get node type) @NODE_PREPROCESS) (then
+		(remove v 0 1)
+	))
+
+	(if (= (get identifier v) 1) (then
+		(let value str)
+		(if (= (get node type) @NODE_PREPROCESS) (then
+			(set value "@")
+		))
+		(<< value "__")
+		(<< value package)
+		(<< value "__")
+		(<< value v)
+		(set node value value)
+	))
+
+	(for i 0 (< i (# (get node child))) 1 (do
+		(call preprocess_package_rewrite_identifier package identifier (get node child i))
+	))
+)
+
+(func preprocess_package_rewrite (param package str) (param node (struct node))
+	(let identifier (map str int) (alloc (map str int)))
+	(for i 0 (< i (# (get node child))) 1 (do
+		(if (||
+			(= (get node child i value) "@define")
+			(= (get node child i value) "func")
+			(= (get node child i value) "struct")
+		) (then
+			(set identifier (get node child i child 0 value) 1)
+		))
+	))
+
+	(call preprocess_package_rewrite_identifier package identifier node)
+)
+
+(func preprocess_package_from_path (param pathprefix str) (param node (struct node)) (result (vec 3 str))
+	(let package str "")
+	(let filename str "")
+	(let basepath str "")
+
+	(let quotedfilename str (get node child 0 value))
+	(if (= (# (get node child)) 2) (then
+		(for i 1 (< i (- (# (get node child 0 value)) 1)) 1 (do
+			(<< package (get node child 0 value i))
+		))
+		(set quotedfilename (get node child 1 value))
+	))
+
+	(let start int 0)
+	(let end int (# quotedfilename))
+	(for i 0 (< i (# quotedfilename)) 1 (do
+		(if (= (get quotedfilename i) @PREPROCESS_CHAR_SLASH) (then
+			(set start (+ i 1))
+		))
+		(if (= (get quotedfilename i) @PREPROCESS_CHAR_STOP) (then
+			(set end i)
+		))
+	))
+	(if (= (# (get node child)) 1) (then
+		(for i start (< i end) 1 (do
+			(<< package (get quotedfilename i))
+		))
+	))
+
+	(for i 0 (< i (# pathprefix)) 1 (do
+		(<< filename (get pathprefix i))
+	))
+	(for i 1 (< i (- (# quotedfilename) 1)) 1 (do
+		(<< filename (get quotedfilename i))
+	))
+
+	(for i 0 (< i (# pathprefix)) 1 (do
+		(<< basepath (get pathprefix i))
+	))
+	(for i 1 (< i start) 1 (do
+		(<< basepath (get quotedfilename i))
+	))
+
+	(return (alloc (vec 3 str) package filename basepath))
+)
+
+(func preprocess_include_import (param basepath str) (param node (struct node))
+	(let i int 0)
+	(while (< i (# (get node child))) (do
+		(if (|| (= (get node child i value) "@include")
+			(= (get node child i value) "@import")
+		) (then
+			(let res (vec 3 str) (call preprocess_package_from_path basepath (get node child i)))
+			(let package str (get res 0))
+			(let filename str (get res 1))
+			(let prefix str (get res 2))
+
+			(let include_str str (call readfile filename))
+			(if (= (# include_str) 0) (then
+				(let err str "Cannot open file: ")
+				(<< err filename)
+				(call compile_error @MODULE_PREPROCESS (get node child i) err)
+			))
+
+			(let tokens (arr (struct token)) (call token_parse include_str filename 0))
+			(let include (struct node) (call node_from_tokens tokens))
+
+			(call preprocess_include_import prefix include)
+
+			(if (= (get node child i value) "@import") (then
+				(call preprocess_package_rewrite package include)
+			))
+
+			(remove (get node child) i 1)
+			(for j 0 (< j (# (get include child))) 1 (do
+				(insert (get node child) (+ i j) (get include child j))
+			))
+			(set i (+ i (# (get include child))))
+		) (else
+			(set i (+ i 1))
+		))
+	))
+)
+
+(func preprocess_identifier_rewrite (param node (struct node))
+	(if (= (get node type) @NODE_STR) (then
+		(for i 0 (< i (# (get node value))) 1 (do
+			(if (= (get node value i) @PREPROCESS_CHAR_STOP) (then
+				(remove (get node value) i 1)
+				(insert (get node value) i @PREPROCESS_CHAR_UNDERSCORE)
+				(insert (get node value) i @PREPROCESS_CHAR_UNDERSCORE)
+				(insert (get node value) 0 @PREPROCESS_CHAR_UNDERSCORE)
+				(insert (get node value) 0 @PREPROCESS_CHAR_UNDERSCORE)
+			))
+		))
+	))
+
+	(if (= (get node type) @NODE_PREPROCESS) (then
+		(for i 0 (< i (# (get node value))) 1 (do
+			(if (= (get node value i) @PREPROCESS_CHAR_STOP) (then
+				(remove (get node value) i 1)
+				(insert (get node value) i @PREPROCESS_CHAR_UNDERSCORE)
+				(insert (get node value) i @PREPROCESS_CHAR_UNDERSCORE)
+				(insert (get node value) 1 @PREPROCESS_CHAR_UNDERSCORE)
+				(insert (get node value) 1 @PREPROCESS_CHAR_UNDERSCORE)
+			))
+		))
+	))
+
+	(for i 0 (< i (# (get node child))) 1 (do
+		(call preprocess_identifier_rewrite (get node child i))
+	))
+)
+
+(func preprocess (param node (struct node)) (result (struct node))
+	(call preprocess_include_import "" node)
+	(call preprocess_identifier_rewrite node)
+
+	(return node)
+)

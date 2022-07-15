@@ -1,0 +1,27 @@
+(@if TARGET_CPP 1
+	(asm "std::string float_to_str(float value) { return std::to_string(value); }")
+	(asm "std::string int_to_str(int value) { return std::to_string(value); }")
+	(asm "int str_to_int(std::string str) { return std::stoi(str); }")
+	(asm "float str_to_float(std::string str) { return std::stof(str); }")
+)
+(@if TARGET_JS 1
+	(asm "function float_to_str(str) { return str.toString(); }")
+	(asm "function int_to_str(str) { return str.toString(); }")
+	(asm "function str_to_int(str) { return parseInt(str); }")
+	(asm "function str_to_float(str) { return parseFloat(str); }")
+)
+
+(func str_quote (param value str) (result str)
+	(let quote str "\"")
+	(<< quote value)
+	(<< quote "\"")
+	(return quote)
+)
+
+(func str_unquote (param quote str) (result str)
+	(let value str "")
+	(for i 1 (< i (- (# quote) 1)) 1 (do
+		(<< value (get quote i))
+	))
+	(return value)
+)

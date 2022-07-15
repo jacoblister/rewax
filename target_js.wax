@@ -1,0 +1,497 @@
+; ----------------------------------------------------------------------------
+; - JavaScript language target -
+; ----------------------------------------------------------------------------
+
+(func node_to_js (param depth int) (param node (struct node)) (result str)
+	(let s str (alloc str ""))
+
+	(set depth (+ depth 1))
+	(set node (call node_copy node))
+
+	(if (= (get node type) @NODE_ROOT) (then
+		(let has_main int 0)
+		(for i 0 (< i (# (get node child))) 1 (do
+			(if (&&
+				(= (get node child i value) "func")
+				(= (get node child i child 0 value) "main")
+			) (then
+				(set has_main 1)
+			))
+
+			(let child str (call node_to_js 0 (get node child i)))
+			(<< s child)
+			(<< s "\n")
+		))
+
+		(if has_main (then
+			(<< s "(typeof process == 'undefined') ? main([]) : process.exit(main(process.argv.slice(1)));\n")
+		))
+	))
+
+	(if (||
+		(= (get node value) "+")
+		(= (get node value) "&&")
+		(= (get node value) "||")
+	) (then
+		(set node (call node_expand node))
+	))
+
+	(if (= (get node type) @NODE_EXPR) (then
+		(let block_start str (alloc str "("))
+		(<< block_start (get node value))
+		(let block_end str (alloc str ")"))
+		(let block_seperator str (alloc str " "))
+
+		(if (= (get node value) "") (then
+			(set block_start "{")
+			(set block_end "}")
+		))
+		(if (= (get node value) "@define") (then
+			(set block_start "const ")
+			(<< block_start (get node child 0 value))
+			(<< block_start " = ")
+			(<< block_start (get node child 1 value))
+			(<< block_start ";")
+
+			(set block_end "")
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "@if") (then
+			(set block_start "")
+			(set block_end "")
+			(if (= (get node child 0 value) "TARGET_JS") (then
+				(remove (get node child) 0 1)
+				(remove (get node child) 0 1)
+			) (else
+				(while (> (# (get node child)) 0) (do
+					(remove (get node child) 0 1)
+				))
+			))
+		))
+		(if (= (get node value) "extern") (then
+			(set block_start "")
+			(set block_end "")
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "asm") (then
+			(let quotedline str (get node child 0 value))
+			(let line str "")
+			(for j 1 (< j (- (# quotedline) 1)) 1 (do
+				(<< line (get quotedline j))
+			))
+
+			(set block_start line)
+			(set block_end "\n")
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "struct") (then
+			(set block_start "")
+			(set block_end "")
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "func") (then
+			(set block_start "function ")
+			(if (= (get node child 0 type) @NODE_STR) (then
+				(let fname_node (struct node) (get node child 0))
+				(<< block_start (get fname_node value))
+				(remove (get node child) 0 1)
+			))
+			(<< block_start "(")
+
+			(let param_count int 0)
+			(let i int 0)
+			(while (< i (# (get node child))) (do
+				(let child_node (struct node) (get node child i))
+				(if (= (get child_node value) "param") (then
+					(if (= (# (get child_node child)) 2) (then
+						(let param_node (struct node) (get child_node child 0))
+						(if (> param_count 0) (then
+							(<< block_start ", ")
+						))
+						(<< block_start (get param_node value))
+						(set param_count (+ param_count 1))
+					))
+					(remove (get node child) i 1)
+					(set i (- i 1))
+				))
+				(if (= (get child_node value) "result") (then
+					(remove (get node child) i 1)
+					(set i (- i 1))
+				))
+				(set i (+ i 1))
+			))
+
+			(<< block_start ") {")
+			(set block_end "}")
+		))
+		(if (= (get node value) "call") (then
+			(let fname_node (struct node) (get node child 0))
+			(set block_start (get fname_node value))
+			(<< block_start "(")
+			(set block_end ")")
+			(remove (get node child) 0 1)
+			(set block_seperator ", ")
+		))
+		(if (||
+			(= (get node value) "let")
+			(= (get node value) "local")
+		) (then
+			(set block_start "let ")
+			(set block_end "")
+			(remove (get node child) 1 1)
+
+			(if (= (# (get node child)) 2) (then
+				(insert (get node child) 1 (call node_new @NODE_STR "="))
+			))
+		))
+		(if (= (get node value) "alloc") (then
+			(set block_start "")
+			(set block_end "")
+
+			(let child (struct node) (get node child 0))
+			(if (= (get child type) @NODE_EXPR) (then
+				(if (&&
+					(= (get node child 0 value) "vec")
+					(= (# (get node child)) 1))
+				(then
+					(set block_start "new Array(")
+					(<< block_start (call node_to_js depth (get node child 0 child 0)))
+					(<< block_start ").fill(0)")
+				) (else
+					(if (||
+						(= (get node child 0 value) "arr")
+						(= (get node child 0 value) "vec")
+					) (then
+						(set block_start "[")
+						(for i 1 (< i (# (get node child))) 1 (do
+							(<< block_start (call node_to_js depth (get node child i)))
+							(if (< i (- (# (get node child)) 1)) (then
+								(<< block_start ",")
+							))
+						))
+						(<< block_start "]")
+					))
+				))
+				(if (||
+					(= (get node child 0 value) "map")
+					(= (get node child 0 value) "struct")
+				) (then
+					(set block_start "{}")
+				))
+			))
+			(if (= (get child type) @NODE_STR) (then
+				(if (>= (# (get node child)) 2) (then
+					(set block_start (call node_to_js depth (get node child 1)))
+				) (else
+					(set block_start "\"\"")
+				))
+			))
+
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "free") (then
+			(set block_start "/*GC*/")
+			(set block_end "")
+
+			(remove (get node child) 0 1)
+		))
+		(if (= (get node value) "#") (then
+			(set block_start "")
+			(set block_end ".length")
+		))
+		(if (= (get node value) "insert") (then
+			(set block_start (call node_to_js depth (get node child 0)))
+			(<< block_start ".splice(")
+			(<< block_start (call node_to_js depth (get node child 1)))
+			(<< block_start ",0,")
+			(<< block_start (call node_to_js depth (get node child 2)))
+			(set block_end ")")
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "remove") (then
+			(if (<> (get node child 1 type) @NODE_STR_QUOTE) (then
+				(set block_start (call node_to_js depth (get node child 0)))
+				(<< block_start ".splice(")
+				(<< block_start (call node_to_js depth (get node child 1)))
+				(<< block_start ",")
+				(<< block_start (call node_to_js depth (get node child 2)))
+				(set block_end ")")
+			))
+			(if (= (get node child 1 type) @NODE_STR_QUOTE) (then
+				(set block_start "delete ")
+				(<< block_start (call node_to_js depth (get node child 0)))
+				(<< block_start "[")
+				(<< block_start (call node_to_js depth (get node child 1)))
+				(set block_end "]")
+			))
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "slice") (then
+			(set block_start (call node_to_js depth (get node child 0)))
+			(<< block_start ".slice(")
+			(<< block_start (call node_to_js depth (get node child 1)))
+			(<< block_start ",(")
+			(<< block_start (call node_to_js depth (get node child 2)))
+			(<< block_start " + ")
+			(<< block_start (call node_to_js depth (get node child 1)))
+			(set block_end "))")
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "get") (then
+			(set block_start (call node_to_js depth (get node child 0)))
+			(set block_end "")
+			(for i 1 (< i (# (get node child))) 1 (do
+				(let child (struct node) (get node child i))
+				(if (&& (= (get child type) @NODE_STR) (> (# (get child value)) 1))
+					(then
+						(<< block_end ".")
+						(<< block_end (call node_to_js depth (get node child i)))
+						(<< block_end "")
+					) (else
+					(<< block_end "[")
+					(<< block_end (call node_to_js depth (get node child i)))
+					(<< block_end "]")
+				))
+			))
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "set") (then
+			(set block_start (call node_to_js depth (get node child 0)))
+			(set block_end "")
+			(let n int (- (# (get node child)) 1))
+			(for i 1 (< i n) 1 (do
+				(let child (struct node) (get node child i))
+				(if (&& (= (get child type) @NODE_STR) (> (# (get child value)) 1))
+					(then
+						(<< block_end ".")
+						(<< block_end (call node_to_js depth (get node child i)))
+						(<< block_end "")
+					) (else
+					(<< block_end "[")
+					(<< block_end (call node_to_js depth (get node child i)))
+					(<< block_end "]")
+				))
+			))
+			(<< block_end " = ")
+			(<< block_end (call node_to_js depth (get node child n)))
+
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "cast") (then
+			(if (= (get node child 1 value) "str") (then
+				(set block_start "\"\"+")
+				(set block_end (call node_to_js depth (get node child 0)))
+			))
+			(if (= (get node child 1 value) "int") (then
+				(set block_start (call node_to_js depth (get node child 0)))
+				(set block_end "|0")
+			))
+			(remove (get node child) 0 1)
+			(remove (get node child) 0 1)
+		))
+		(if (= (get node value) "then") (then
+			(set block_start "{")
+			(set block_end "}")
+		))
+		(if (= (get node value) "else") (then
+			(set block_start "else {")
+			(set block_end "}")
+		))
+		(if (= (get node value) "for") (then
+			(if (= (# (get node child)) 5) (then
+				(set block_start "for (let ")
+				(<< block_start (call node_to_js depth (get node child 0)))
+				(<< block_start " = ")
+				(<< block_start (call node_to_js depth (get node child 1)))
+				(<< block_start "; ")
+				(<< block_start (call node_to_js depth (get node child 2)))
+				(<< block_start "; ")
+				(<< block_start (call node_to_js depth (get node child 0)))
+				(<< block_start " += ")
+				(<< block_start (call node_to_js depth (get node child 3)))
+				(<< block_start ") ")
+				(remove (get node child) 0 4)
+				(set block_end "")
+			))
+			(if (= (# (get node child)) 4) (then
+				(set block_start "for (const [")
+				(<< block_start (call node_to_js depth (get node child 0)))
+				(<< block_start ",")
+				(<< block_start (call node_to_js depth (get node child 1)))
+				(<< block_start "] of Object.entries(")
+				(<< block_start (call node_to_js depth (get node child 2)))
+				(<< block_start "))")
+				(remove (get node child) 0 3)
+				(set block_end "")
+			))
+		))
+		(if (||
+			(= (get node value) "if")
+			(= (get node value) "while")
+		) (then
+			(set block_start (get node value))
+			(<< block_start " ")
+			(let block_simple int (<> (get node child 0 type) @NODE_EXPR))
+			(if block_simple (then
+				(<< block_start "(")
+			))
+			(<< block_start (call node_to_js depth (get node child 0)))
+			(if block_simple (then
+				(<< block_start ")")
+			))
+			(<< block_start " ")
+			(set block_end "")
+			(remove (get node child) 0 1)
+		))
+		(if (= (get node value) "do") (then
+			(set block_start "{")
+			(set block_end "}")
+		))
+		(if (= (get node value) "break") (then
+			(set block_start "break")
+			(set block_end "")
+		))
+		(if (= (get node value) "?") (then
+			(set block_start (call node_to_js depth (get node child 0)))
+			(<< block_start " ? ")
+			(<< block_start (call node_to_js depth (get node child 1)))
+			(<< block_start " : ")
+			(<< block_start (call node_to_js depth (get node child 2)))
+			(set block_end "")
+			(while (> (# (get node child)) 0) (do
+				(remove (get node child) 0 1)
+			))
+		))
+		(if (= (get node value) "print") (then
+			(set block_start "console.log(")
+		))
+		(if (||
+			(= (get node value) ">>")
+			(= (get node value) "<<")
+			(= (get node value) "=")
+			(= (get node value) "&&")
+			(= (get node value) "||")
+			(= (get node value) ">=")
+			(= (get node value) "<=")
+			(= (get node value) "<>")
+			(= (get node value) "+")
+			(= (get node value) "-")
+			(= (get node value) "*")
+			(= (get node value) "/")
+			(= (get node value) "^")
+			(= (get node value) "%")
+			(= (get node value) "&")
+			(= (get node value) "|")
+			(= (get node value) "~")
+			(= (get node value) "<")
+			(= (get node value) ">")
+		) (then
+			(set block_start "(")
+			(set block_end ")")
+
+			(if (= (get node value) "=") (then
+				(set node value "==")
+			))
+			(if (= (get node value) "<>") (then
+				(set node value "!=")
+			))
+
+			(if (&&
+				(= (get node value) "<<")
+				(= (get node child 0 type) @NODE_STR)
+			) (then
+				(set node value "+=")
+			))
+			(insert (get node child) 1 (call node_new @NODE_STR (get node value)))
+		))
+		(if (= (get node value) "return") (then
+			(if (> (# (get node child)) 0) (then 
+				(set block_start "return(")
+				(set block_end ")")
+			) (else 
+				(set block_start "return")
+				(set block_end "")
+			))
+		))
+
+		(<< s block_start)
+
+		(for i 0 (< i (# (get node child))) 1 (do
+			(let node_child (struct node) (get node child i))
+			(let indent_needed int (call node_indent_needed node node_child))
+			(let indent_depth int (? indent_needed depth (- depth 1)))
+			(let indent str "  ")
+
+			(if indent_needed (then
+				(<< s "\n")
+				(for i 0 (< i indent_depth) 1 (do
+					(<< s indent)
+				))
+			) (else (if (> i 0) (then
+				(<< s block_seperator)
+			))))
+
+			(let child str (call node_to_js indent_depth node_child))
+			(<< s child)
+
+			(if (||
+				(= (get node value) "")
+				(= (get node value) "func")
+				(= (get node value) "do")
+				(= (get node value) "then")
+				(= (get node value) "else")
+			) (then
+				(<< s ";")
+			))
+
+			(if (&&
+				indent_needed
+				(= i (- (# (get node child)) 1))
+			) (then
+				(<< s "\n")
+				(for i 0 (< i (- indent_depth 1)) 1 (do
+					(<< s indent)
+				))
+			))
+		))
+
+		(<< s block_end)
+	))
+
+	(if (<> (get node type) @NODE_EXPR) (then
+		(let value str (get node value))
+		(if (= (get node type) @NODE_PREPROCESS) (then
+			(set value "")
+			(for i 1 (< i (# (get node value))) 1 (do
+				(<< value (get node value i))
+			))
+		))
+		(if (= (get node type) @NODE_COMMENT) (then
+			(set value "// ")
+			(<< value (get node value))
+		))
+		(<< s value)
+	))
+
+	(return s)
+)

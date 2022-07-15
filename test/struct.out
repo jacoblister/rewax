@@ -1,0 +1,15 @@
+struct_empty_test:
+struct_simple_test:
+1.1
+1.2
+struct_nested_test:
+parent
+child
+struct_comparison_value_test:
+A
+A
+0
+struct_comparison_ref_test:
+A
+A
+1

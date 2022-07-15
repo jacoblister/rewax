@@ -1,0 +1,81 @@
+(@include "test.wax")
+(@include "token.wax")
+(@include "node.wax")
+(@include "error.wax")
+(@include "fileio.wax")
+(@include "preprocess.wax")
+
+(func preprocess_package_from_path_simple_test
+	; Given - simple include
+	(let test (struct test_test) (call test_init "preprocess_package_from_path_simple_test"))
+    (let node_include (struct node) (call node_new @NODE_EXPR "include"))
+    (let node_file (struct node) (call node_new @NODE_STR_QUOTE "\"wax/test.wax\""))
+    (insert (get node_include child) (# (get node_include child)) node_file)
+
+	; When
+	(let res (vec 3 str) (call preprocess_package_from_path "" node_include))
+
+    ; Then
+	(call test_assert_equal test "test" (get res 0) "got expected package")
+    (call test_assert_equal test "wax/test.wax" (get res 1) "got expected filename")
+	(call test_assert_equal test "wax/" (get res 2) "got expected basepath")
+)
+
+(func preprocess_package_from_path_parentdir_test
+	; Given - parent directory include
+	(let test (struct test_test) (call test_init "preprocess_package_from_path_parentdir_test"))
+    (let node_include (struct node) (call node_new @NODE_EXPR "include"))
+    (let node_file (struct node) (call node_new @NODE_STR_QUOTE "\"wax/test.wax\""))
+    (insert (get node_include child) (# (get node_include child)) node_file)
+
+	; When
+	(let res (vec 3 str) (call preprocess_package_from_path "" node_include))
+
+    ; Then
+	(call test_assert_equal test "test" (get res 0) "got expected package")
+    (call test_assert_equal test "wax/test.wax" (get res 1) "got expected filename")
+	(call test_assert_equal test "wax/" (get res 2) "got expected basepath")
+)
+
+(func preprocess_package_from_path_prefix_test
+	; Given - simple include, with basepath prefix
+	(let test (struct test_test) (call test_init "preprocess_package_from_path_prefix_test"))
+    (let node_include (struct node) (call node_new @NODE_EXPR "include"))
+    (let node_file (struct node) (call node_new @NODE_STR_QUOTE "\"../wax/test.wax\""))
+    (insert (get node_include child) (# (get node_include child)) node_file)
+
+	; When
+	(let res (vec 3 str) (call preprocess_package_from_path "" node_include))
+
+    ; Then
+	(call test_assert_equal test "test" (get res 0) "got expected package")
+    (call test_assert_equal test "../wax/test.wax" (get res 1) "got expected filename")
+	(call test_assert_equal test "../wax/" (get res 2) "got expected basepath")
+)
+
+(func preprocess_package_from_path_alias_test
+	; Given - simple include
+	(let test (struct test_test) (call test_init "preprocess_package_from_path_alias_test"))
+    (let node_include (struct node) (call node_new @NODE_EXPR "import"))
+    (let node_package (struct node) (call node_new @NODE_STR_QUOTE "\"test\""))
+    (insert (get node_include child) (# (get node_include child)) node_package)
+    (let node_file (struct node) (call node_new @NODE_STR_QUOTE "\"wax/test123.wax\""))
+    (insert (get node_include child) (# (get node_include child)) node_file)
+
+	; When
+	(let res (vec 3 str) (call preprocess_package_from_path "" node_include))
+
+    ; Then
+	(call test_assert_equal test "test" (get res 0) "got expected package")
+    (call test_assert_equal test "wax/test123.wax" (get res 1) "got expected filename")
+	(call test_assert_equal test "wax/" (get res 2) "got expected basepath")
+)
+
+(func main (result int)
+	(call preprocess_package_from_path_simple_test)
+	(call preprocess_package_from_path_parentdir_test)
+	(call preprocess_package_from_path_prefix_test)
+	(call preprocess_package_from_path_alias_test)
+
+	(return 0)
+)

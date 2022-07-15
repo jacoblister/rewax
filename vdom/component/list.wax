@@ -1,0 +1,53 @@
+(@define vdom.LIST_WIDTH 50)
+(@define vdom.LIST_ITEM_X_MARGIN 2)
+(@define vdom.LIST_ITEM_HEIGHT 10)
+(@define vdom.LIST_ITEM_HEIGHT_HALF 5)
+
+(let vdom.list_selected_index int)
+
+(func vdom.list_render (param pos_x int) (param pos_y int) (param values (arr str))
+	(param select (func (param value str))) (result (struct vdom.element))
+	(let g (struct vdom.element) (g key "list"
+		(rect id "vdom.listbox"
+			x pos_x y pos_y width vdom.LIST_WIDTH height (* (# values) vdom.LIST_ITEM_HEIGHT) fill "white" stroke "black"
+			pointer-events "all"
+			pointermove
+			(func (param event (struct vdom.event))
+				(set vdom.list_selected_index (cast (/ (get event offset_y) vdom.LIST_ITEM_HEIGHT) int))
+				(if (>= vdom.list_selected_index (# values)) (then (set vdom.list_selected_index (- (# values) 1))))
+				(call vdom.update)
+			)
+			pointerdown
+			(func (param event (struct vdom.event))
+                (let i int vdom.list_selected_index)
+                (call select (get values i))
+			)
+			pointerup
+			(func (param event (struct vdom.event))
+                (let i int vdom.list_selected_index)
+                (call select (get values i))
+			)
+			pointerout
+			(func (param event (struct vdom.event))
+				(set vdom.list_selected_index -1)
+				(call vdom.update)
+			)
+		)
+		(if (>= vdom.list_selected_index 0) (then
+			(rect
+				x pos_x y (+ pos_y (* vdom.list_selected_index vdom.LIST_ITEM_HEIGHT))
+				width vdom.LIST_WIDTH height vdom.LIST_ITEM_HEIGHT
+				fill "lightgrey" stroke "none"
+				pointer-events "none")
+		))
+		(for i 0 (< i (# values)) 1 (do
+			(text font-size "10" font-family "sans-serif" text-anchor "left" alignment-baseline "central"
+				pointer-events "none"
+				x (+ pos_x @vdom.LIST_ITEM_X_MARGIN)
+				y (+ (+ pos_y (* i @vdom.LIST_ITEM_HEIGHT)) @vdom.LIST_ITEM_HEIGHT_HALF)
+				text (get values i))
+		))
+	))
+
+	(return g)
+)

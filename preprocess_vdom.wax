@@ -1,0 +1,188 @@
+(func preprocess_vdom_quote (param value str) (result str)
+	(let out str "")
+	(<< out "\"")
+	(<< out value)
+	(<< out "\"")
+	(return out)
+)
+
+(func preprocess_vdom_isaction (param type str) (result int)
+	(if (||
+		(= type "do") (= type "then") (= type "else")) (then
+		(return 1)
+	))
+	(return 0)
+)
+
+(func preprocess_vdom_reserverd (param type str) (result int)
+	(if (||
+		(= type "let") (= type "set") (= type "<<") (= type "if") (= type "else") (= type "for") (= type "while") (= type "do")) (then
+		(return 1)
+	))
+	(return 0)
+)
+
+(func preprocess_vdom_element (param node (struct node)) (result (struct node))
+	(let out (struct node) (call node_new @NODE_EXPR "call"))
+	(insert (get out child) 0 (call node_new @NODE_STR "__vdom__element_new"))
+	(insert (get out child) 1 (call node_new @NODE_STR_QUOTE (call preprocess_vdom_quote (get node value))))
+	(return out)
+)
+
+(func preprocess_vdom_element_child (param depth int) (param name str) (param node (struct node)) (result (arr (struct node)))
+	(let out (arr (struct node)) (alloc (arr (struct node))))
+
+	(let i int 0)
+	(while (< i (# (get node child))) (do
+		(let type str "")
+		(if (= (get node child i type) @NODE_STR) (then
+			(set type "attr")
+			(if (&&
+				(= (get node child (+ i 1) type) @NODE_EXPR)
+				(= (get node child (+ i 1) value) "func")
+			) (then
+				(set type "event")
+			))
+		))
+		(if (= (get node child i type) @NODE_EXPR) (then
+			(set type "element")
+			(if (= (get node child i value) "child") (then
+				(set type "child")
+			))
+			(if (<> (call preprocess_vdom_reserverd (get node child i value)) 0) (then
+				(set type "reserved")
+			))
+		))
+
+		(if (|| (= type "attr") (= type "event")) (then
+			(let attr_set (struct node) (call node_new @NODE_EXPR "set"))
+			(set (get attr_set token) newlines 1)
+			(insert (get attr_set child) 0 (call node_new @NODE_STR name))
+			(insert (get attr_set child) 1 (call node_new @NODE_STR type))
+			(insert (get attr_set child) 2 (call node_new @NODE_STR_QUOTE (call preprocess_vdom_quote (get node child i value))))
+
+			(if (|| (= type "event") (= (get node child (+ i 1) type) @NODE_STR_QUOTE)) (then
+				(insert (get attr_set child) 3 (get node child (+ i 1)))
+			) (else
+				(let value (struct node) (call node_new @NODE_EXPR "cast"))
+				(insert (get value child) 0 (get node child (+ i 1)))
+				(insert (get value child) 1 (call node_new @NODE_STR "str"))
+				(insert (get attr_set child) 3 value)
+			))
+			(insert out (# out) attr_set)
+			(set i (+ i 1))
+		))
+		(if (= type "reserved") (then
+			(let child (arr (struct node)) (get node child i child))
+			(set (get node child i child) (alloc (arr (struct node))))
+
+			(for j 0 (< j (# child)) 1 (do
+				(if (&& (= (get child j type) @NODE_EXPR) (call preprocess_vdom_isaction (get child j value))) (then
+					(let action_node (struct node) (call node_new @NODE_EXPR (get child j value)))
+					(let element_child (arr (struct node)) (call preprocess_vdom_element_child (+ depth 1) name (get child j)))
+					(for k 0 (< k (# element_child)) 1 (do
+						(insert (get action_node child) (# (get action_node child)) (get element_child k))
+					))
+					(insert (get node child i child) (# (get node child i child)) action_node)
+				) (else 
+					(insert (get node child i child) (# (get node child i child)) (get child j))
+				))
+			))
+
+			(insert out (# out) (get node child i))
+		))
+		(if (= type "child") (then
+			(let element_insert (struct node) (call node_new @NODE_EXPR "insert"))
+			(set (get element_insert token) newlines 1)
+			(set (get element_insert token) newlines 1)
+			(let element_insert_get (struct node) (call node_new @NODE_EXPR "get"))
+			(insert (get element_insert_get child) 0 (call node_new @NODE_STR name))
+			(insert (get element_insert_get child) 1 (call node_new @NODE_STR "child"))
+			(insert (get element_insert child) 0 element_insert_get)
+			(let element_insert_count (struct node) (call node_new @NODE_EXPR "#"))
+			(let element_insert_count_get (struct node) (call node_new @NODE_EXPR "get"))
+			(insert (get element_insert_count_get child) 0 (call node_new @NODE_STR name))
+			(insert (get element_insert_count_get child) 1 (call node_new @NODE_STR "child"))
+			(insert (get element_insert_count child) 0 element_insert_count_get)
+			(insert (get element_insert child) 1 element_insert_count)
+			(insert (get element_insert child) 2 (call node_new @NODE_STR (get node child i child 0 value)))
+
+			(insert out (# out) element_insert)
+		))
+		(if (= type "element") (then
+			(let block (struct node) (call node_new @NODE_EXPR ""))
+			(if (<> (call preprocess_vdom_isaction (get node value)) 0) (then
+				(set block value (get node value))
+			))
+
+			(set (get block token) newlines 1)
+			(insert out (# out) block)
+
+			(let child_name str "_")
+			(<< child_name (cast depth str))
+			(<< child_name "_")
+			(<< child_name (cast i str))
+			(<< child_name "_")
+			(<< child_name (get node child i value))
+
+			(let element (struct node) (call node_new @NODE_EXPR "let"))
+			(set (get element token) newlines 1)
+			(insert (get element child) 0 (call node_new @NODE_STR child_name))
+			(let element_struct (struct node) (call node_new @NODE_EXPR "struct"))
+			(insert (get element_struct child) 0 (call node_new @NODE_STR "__vdom__element"))
+			(insert (get element child) 1 element_struct)
+			(insert (get element child) 2 (call preprocess_vdom_element (get node child i)))
+			(insert (get block child) (# (get block child)) element)
+
+			(let element_insert (struct node) (call node_new @NODE_EXPR "insert"))
+			(set (get element_insert token) newlines 1)
+			(let element_insert_get (struct node) (call node_new @NODE_EXPR "get"))
+			(insert (get element_insert_get child) 0 (call node_new @NODE_STR name))
+			(insert (get element_insert_get child) 1 (call node_new @NODE_STR "child"))
+			(insert (get element_insert child) 0 element_insert_get)
+			(let element_insert_count (struct node) (call node_new @NODE_EXPR "#"))
+			(let element_insert_count_get (struct node) (call node_new @NODE_EXPR "get"))
+			(insert (get element_insert_count_get child) 0 (call node_new @NODE_STR name))
+			(insert (get element_insert_count_get child) 1 (call node_new @NODE_STR "child"))
+			(insert (get element_insert_count child) 0 element_insert_count_get)
+			(insert (get element_insert child) 1 element_insert_count)
+			(insert (get element_insert child) 2 (call node_new @NODE_STR child_name))
+			(insert (get block child) (# (get block child)) element_insert)
+
+			(let element_child (arr (struct node)) (call preprocess_vdom_element_child (+ depth 1) child_name (get node child i)))
+			(for j 0 (< j (# element_child)) 1 (do
+				(insert (get block child) (# (get block child)) (get element_child j))
+			))
+		))
+		(set i (+ i 1))
+	))
+	(return out)
+)
+
+(func preprocess_vdom (param node (struct node)) (result (struct node))
+	(for i 0 (< i (# (get node child))) 1 (do
+		(if (&&
+			(= (get node child i value) "let")
+			(= (# (get node child i child)) 3)
+			(= (get node child i child 1 value) "struct")
+			(|| (= (get node child i child 1 child 0 value) "vdom.element")
+				(= (get node child i child 1 child 0 value) "__vdom__element")
+			)
+			(&& (<> (get node child i child 2 value) "call")
+				(<> (get node child i child 2 value) "alloc")
+			)
+		) (then
+			(let element_child (arr (struct node)) (call preprocess_vdom_element_child 0 (get node child i child 0 value) (get node child i child 2)))
+			(set (get node child i child 2) (call preprocess_vdom_element (get node child i child 2)))
+			(set (get node child i child 2 token) newlines 0)
+			(for j 0 (< j (# element_child)) 1 (do
+				(set i (+ i 1))
+				(insert (get node child) i (get element_child j))
+			))
+		) (else
+			(set (get node child i) (call preprocess_vdom (get node child i)))
+		))
+	))
+
+	(return node)
+)

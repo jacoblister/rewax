@@ -1,0 +1,19 @@
+str_noasign_test:
+str_asign_test:
+init
+str_alloc_test:
+
+str_alloc_asign_test:
+init
+str_append_test:
+init:append
+i2:append
+str_append_int_test:
+init:
+str_quote_test:
+quote double contains 'quote single' string
+quote double contains apostrophe's string
+str_char_test:
+match
+str_int_shift_operator_test:
+256

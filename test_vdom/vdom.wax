@@ -1,0 +1,36 @@
+(func clicker_render (param clicker (struct clicker)) (result (struct vdom.element))
+	(let rect (struct vdom.element)
+		(rect stroke "red" fill "yellow" x 125 y 75 width 200 height 100
+			mousedown (func (param event (struct vdom.event))
+			(set (get clicker clicks) (+ (get clicker clicks) 1))
+			(call vdom.update)
+		))
+	)
+
+	(let svg (struct vdom.element)
+		(svg version "1.1" xmlns "http://www.w3.org/2000/svg" width 640 height 480
+			(let msg str "Clicks: ")
+			(<< msg (cast (get clicker clicks) str))
+
+			(text x 100 y 45 style "user-select:none;" text msg)
+			(g transform "translate(0.5 0.5)"
+				(rect stroke "red" fill (get clicker fill) x 100 y 50 width 200 height 100
+					mousedown (func (param event (struct vdom.event))
+					(set (get clicker fill) "white")
+					(call vdom.update)
+				))
+			)
+			(child rect)
+			(for i 0 (< i 2) (do
+				(rect stroke "red" fill "yellow" x (+ 200 (* i 20)))
+
+				(rect stroke "red" fill "yellow" x 125 y 75 width 200 height 100
+					mousedown (func (param event (struct vdom.event))
+					(set (get clicker clicks) (+ (get clicker clicks) 1))
+					(call vdom.update)
+				))
+			))
+		)
+	)
+	(return svg)
+)

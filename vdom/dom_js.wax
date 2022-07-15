@@ -1,0 +1,110 @@
+(@if TARGET_JS 1
+	(asm "function dom_timer() {")
+	(asm "  __vdom__dom_background();")
+	(asm "  setTimeout(dom_timer, 100);")
+	(asm "}")
+	(asm "dom_timer();")
+	(asm "__vdom__dom_width = window.innerWidth;")
+	(asm "__vdom__dom_heigth = window.innerHeigth;")
+	(asm "function dom_resize() {")
+	(asm "  __vdom__dom_width = window.innerWidth;")
+	(asm "  __vdom__dom_heigth = window.innerHeigth;")
+	(asm "  __vdom__update();")
+	(asm "}")
+	(asm "window.onresize = dom_resize;")
+
+	(asm "function dom_event(type, jsevent, handler) {")
+	(asm "  if (type == 'contextmenu') {jsevent.preventDefault();}")
+	(asm "  if (type != 'contextmenu' && type != 'pointerup' && jsevent.button > 0) {return; };")
+	(asm "  let bbox = jsevent.target.getBoundingClientRect();")
+	(asm "  let event = {type: type, client_x: jsevent.clientX, client_y: jsevent.clientY, offset_x: jsevent.clientX - bbox.x, offset_y: jsevent.clientY - bbox.y};")
+	(asm "  handler(event);")
+	(asm "}")
+
+	(asm "function dom_getElementByPath(path) {")
+	(asm "  let element = document.documentElement;")
+	(asm "  for (var i = 0; i < path.length; i++) {")
+    (asm "    element = element.children[path[i]];")
+    (asm "  }")
+	(asm "  return element;")
+	(asm "}")
+
+	(func vdom.dom_init
+	)
+
+	(func vdom.dom_element_write (param element (struct vdom.element)) (result str)
+		(let name str (get element name))
+		(let dom_element str)
+		(asm "dom_element = document.createElementNS('http://www.w3.org/2000/svg', name);")
+
+		(for attr value (get element attr) (do
+			(if (= attr "text") (then
+				(asm "dom_element.textContent=value;")
+			) (else 
+				(asm "dom_element.setAttribute(attr, value);")
+			))
+		))
+
+		(for type handler (get element event) (do
+			(asm "dom_element.addEventListener(type, function(evt) {")
+			(asm "  try{evt.target.releasePointerCapture(evt.pointerId);}catch{}")
+			(asm "  dom_event(type, evt, handler);")
+			(asm "})")
+		))
+
+		(for i 0 (< i (# (get element child))) 1 (do
+			(let dom_element_child str (call vdom.dom_element_write (get element child i)))
+			(asm "dom_element.appendChild(dom_element_child);")
+		))
+		(return dom_element)
+	)
+
+	(func vdom.dom_patch (param patch (struct vdom.patch))
+		(let path (arr int) (get patch path))
+
+		(if (= (get patch type) vdom.PATCH_REPLACE) (then
+			(asm "let target = dom_getElementByPath(path);")
+
+			(let replacement (struct vdom.element) (call vdom.dom_element_write (get patch element)))
+			(asm "target.replaceWith(replacement);")
+		))
+		(if (= (get patch type) vdom.PATCH_UPDATE) (then
+			(asm "let child = dom_getElementByPath(path);")
+			(for attr value (get patch element attr) (do
+				(if (= attr "text") (then
+					(asm "child.textContent=value;")
+				) (else 
+					(asm "child.setAttribute(attr, value);")
+				))
+			))
+		))
+	)
+
+	(func vdom.update 
+		(let dom (struct vdom.element) (call vdom.dom_render_func))
+
+		(let path (arr int) (alloc (arr int)))
+		(let patch (arr (struct vdom.patch)) (call vdom.diff vdom.dom dom path))
+
+		; (call vdom.patch_dump patch)
+
+		(for i 0 (< i (# patch)) 1 (do
+			(call vdom.dom_patch (get patch i))
+		))
+		(set vdom.dom dom)
+	)
+
+	(func vdom.update_background
+		(set vdom.dom_background_pending 1)
+	)
+
+	(func vdom.dom_background
+		(if vdom.dom_background_pending (then
+			(call vdom.update)
+		))
+	)
+
+	(func vdom.dom_run
+		(call vdom.update)
+	)
+)

@@ -1,0 +1,61 @@
+(struct geometry
+	(let area (func (result float)))
+)
+
+(struct rect 
+    (let width float)
+	(let height float)
+)
+
+(func rect_area (param r (struct rect)) (result float)
+	(return (* (get r width) (get r height)))
+)
+
+(func rect_geometry (param r (struct rect)) (result (struct geometry))
+	(let g (struct geometry) (alloc (struct geometry)))
+	(set g area (func (result float) (return (call rect_area r))))
+	(return g)
+)
+
+(struct circle 
+    (let radius float)
+)
+(func circle_area (param c (struct circle)) (result float)
+	(return (* 3.14 (* (get c radius) (get c radius))))
+)
+
+(func circle_geometry (param c (struct circle)) (result (struct geometry))
+	(let g (struct geometry) (alloc (struct geometry)))
+	(set g area (func (result float) (return (call circle_area c))))
+	(return g)
+)
+
+(func interface_test
+	(print "func_struct_test:")
+	(let r (struct rect) (alloc (struct rect)))
+	(set r width 4)
+	(set r height 3)
+
+	(print "rect area")
+	(let g (struct geometry) (call rect_geometry r))
+	; (let g (struct geometry) r)
+
+	(let areaf (func (result float)) (get g area))
+	(let area float (call areaf))
+	(print area)
+	(print "")
+
+	(print "rect area")
+	(let c (struct circle) (alloc (struct circle)))
+	(set c radius 5)
+	(set g (call circle_geometry c))
+	; (let g (struct geometry) c)
+
+	(set areaf (get g area))
+	(print (call areaf))
+)
+
+(func main (result int)
+	(call interface_test)
+	(return 0)
+)
